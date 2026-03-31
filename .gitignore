@@ -1,0 +1,19 @@
+# eclipse
+.classpath
+.project
+.settings/
+.fbExcludeFilterFile
+.pmd
+.ruleset
+.pmdruleset.xml
+
+# IntelliJ
+.idea/
+*.iml
+
+# ? validate
+reports/
+
+target/
+
+.claude
