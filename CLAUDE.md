@@ -12,7 +12,7 @@ mvn clean verify
 mvn test
 
 # Run a single test class
-mvn test -pl vips-ipc-manager -Dtest=ManagerTest
+mvn test -pl vips-ipc-manager -Dtest=VipsClientTest
 
 # Fix code formatting
 mvn spotless:apply
@@ -48,12 +48,12 @@ Manager and worker communicate over stdin/stdout using a **line-based JSON proto
 
 ### Manager (`vips-ipc-manager`)
 
-- `Manager` implements `AutoCloseable`; intended for use in try-with-resources
+- `VipsClient` implements `AutoCloseable`; intended for use in try-with-resources
 - Spawns the worker via `ProcessBuilder` on first use (`ensureRunning()`)
 - Uses a `ReentrantLock` to serialize commands (thread-safe)
-- **Auto-restart**: if the worker process dies, the manager restarts it and retries the command once before throwing
+- **Auto-restart**: if the worker process dies, `WorkerProcess` restarts it and retries the command once before throwing
 - Stderr of the worker is drained in a daemon thread to prevent blocking
-- On close, sends EOF (closes stdin) and waits up to 5 seconds before force-killing
+- On close, sends a `Shutdown` command, waits up to 5 seconds for clean exit, then force-kills
 
 ### Worker (`vips-ipc-worker`)
 
@@ -70,7 +70,7 @@ Commands and responses use **sealed interfaces with Jackson polymorphic deserial
 1. Create a record implementing `Command` in `vips-ipc-share` (e.g., `record MyOp(...) implements Command {}`)
 2. Add a `@JsonSubTypes.Type(value = MyOp.class, name = "my-op")` entry to the `Command` sealed interface
 3. Create a `CommandHandler<MyOp>` implementation in `vips-ipc-worker`
-4. Register the handler in `Main.java`'s dispatch switch
+4. Register the handler in `DefaultHandlerRegistry`'s dispatch switch and wire it in `HandlerRegistryDefaultFactory`
 5. Add a public method in `VipsClient` (manager module) to invoke it
 
 ### Fat JAR Embedding

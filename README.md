@@ -86,6 +86,17 @@ try (VipsClient client = VipsClient.builder().build()) {
 `VipsClient` implements `AutoCloseable`. Use it in a try-with-resources block or hold a single instance for the
 lifetime of your application — both patterns are supported.
 
+### Available Methods
+
+| Method | Description |
+|--------|-------------|
+| `getEnvironment()` | Returns libvips version and available image format loaders |
+| `configure(jpegInterlace, strip)` | Sets global encoding parameters; `null` keeps the current value. Defaults: progressive JPEG (`true`), strip metadata (`false`) |
+| `resize(source, target, scale)` | Scales an image by factor (e.g. `0.5` = 50%) |
+| `thumbnail(source, target, width)` | Creates a thumbnail with fixed width; height is proportional |
+| `scaleTransform(source, target, resize, border, crop, background, formats)` | Applies resize → border → crop in sequence; writes one file per requested format using `target` as base path (without extension); steps are optional (`null` to skip) |
+| `scaleTransformBatch(source, targets)` | Produces multiple outputs from one source image in a single worker call; image is loaded once using shrink-on-load |
+
 ### Builder Options
 
 ```java
@@ -186,13 +197,30 @@ vips-ipc (parent)
    @JsonSubTypes.Type(value = Convert.class, name = "convert")
    ```
 3. Implement `CommandHandler<Convert>` in `vips-ipc-worker`
-4. Add the handler to the `switch` in `Main.java`
+4. Register the handler in `DefaultHandlerRegistry`'s dispatch switch and wire it in `HandlerRegistryDefaultFactory`
 5. Expose a public method on `VipsClient` in `vips-ipc-manager`
 
 ## Building
 
 ```bash
+# Build and verify (runs all checks)
 mvn clean verify
+
+# Run tests only
+mvn test
+
+# Fix code formatting
+mvn spotless:apply
+
+# Check formatting (fails if not compliant)
+mvn spotless:check
+
+# Static analysis
+mvn spotbugs:check
+mvn pmd:check
+
+# Code coverage report
+mvn jacoco:report
 ```
 
 Requires Java 25 and a working libvips installation for the integration tests.
