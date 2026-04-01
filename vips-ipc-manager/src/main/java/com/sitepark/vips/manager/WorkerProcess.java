@@ -2,10 +2,12 @@ package com.sitepark.vips.manager;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sitepark.vips.command.Command;
+import com.sitepark.vips.command.GetEnvironment;
 import com.sitepark.vips.command.Shutdown;
 import com.sitepark.vips.response.ErrorResponse;
 import com.sitepark.vips.response.OkResponse;
 import com.sitepark.vips.response.Response;
+import com.sitepark.vips.response.VipsEnvironmentResponse;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -38,6 +40,7 @@ class WorkerProcess implements AutoCloseable {
 
   private final List<String> command;
   private final long commandTimeoutMs;
+  private final int concurrency;
   private final ReentrantLock lock = new ReentrantLock();
   private final ExecutorService ioReader =
       Executors.newSingleThreadExecutor(
@@ -52,9 +55,10 @@ class WorkerProcess implements AutoCloseable {
   private BufferedWriter toWorker;
   private BufferedReader fromWorker;
 
-  WorkerProcess(List<String> command, long commandTimeoutMs) {
+  WorkerProcess(List<String> command, long commandTimeoutMs, int concurrency) {
     this.command = List.copyOf(command);
     this.commandTimeoutMs = commandTimeoutMs;
+    this.concurrency = concurrency;
   }
 
   // ── Public API ─────────────────────────────────────────────
@@ -66,7 +70,22 @@ class WorkerProcess implements AutoCloseable {
         case OkResponse ignored -> {}
         case ErrorResponse err ->
             throw new IOException("Vips worker error: " + err.message() + "\n" + err.stackTrace());
+        default -> throw new IOException("Unexpected response type");
       }
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  VipsEnvironmentResponse queryEnvironment() throws IOException {
+    lock.lock();
+    try {
+      return switch (sendCommand(new GetEnvironment(), true)) {
+        case VipsEnvironmentResponse r -> r;
+        case ErrorResponse err ->
+            throw new IOException("Vips worker error: " + err.message() + "\n" + err.stackTrace());
+        default -> throw new IOException("Unexpected response type");
+      };
     } finally {
       lock.unlock();
     }
@@ -143,13 +162,24 @@ class WorkerProcess implements AutoCloseable {
 
     ProcessBuilder pb = new ProcessBuilder(command);
     pb.redirectErrorStream(false);
-    process = pb.start();
+    if (concurrency > 0) {
+      pb.environment().put("VIPS_CONCURRENCY", String.valueOf(concurrency));
+    }
+    Process started = pb.start();
+    try {
+      toWorker =
+          new BufferedWriter(
+              new OutputStreamWriter(started.getOutputStream(), StandardCharsets.UTF_8));
+      fromWorker =
+          new BufferedReader(
+              new InputStreamReader(started.getInputStream(), StandardCharsets.UTF_8));
+    } catch (Exception e) {
+      started.destroyForcibly();
+      throw e;
+    }
+    process = started;
 
-    toWorker =
-        new BufferedWriter(
-            new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8));
-    fromWorker =
-        new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8));
+    LOG.info("Worker process PID: " + process.pid());
 
     startStderrConsumer(process.getErrorStream());
   }
@@ -201,6 +231,7 @@ class WorkerProcess implements AutoCloseable {
 
   @Override
   @SuppressFBWarnings("DE_MIGHT_IGNORE")
+  @SuppressWarnings("PMD.EmptyCatchBlock")
   public void close() {
     lock.lock();
     try {
