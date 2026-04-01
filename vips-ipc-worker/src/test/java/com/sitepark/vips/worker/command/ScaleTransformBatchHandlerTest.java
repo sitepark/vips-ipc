@@ -7,6 +7,7 @@ import com.sitepark.vips.command.OutputFormatType;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
 import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
+import com.sitepark.vips.worker.RequiresVips;
 import com.sitepark.vips.worker.WorkerConfig;
 import java.io.File;
 import java.net.URL;
@@ -15,6 +16,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+@RequiresVips
 class ScaleTransformBatchHandlerTest {
 
   @TempDir Path tempDir;
