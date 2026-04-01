@@ -191,6 +191,22 @@
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<version>3.5.5</version>
+				<configuration>
+					<argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+				</configuration>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
 				<version>3.4.0</version>
 				<executions>
@@ -297,6 +313,19 @@
 						<goals>
 							<goal>prepare-agent</goal>
 						</goals>
+					</execution>
+					<execution>
+						<id>jacoco-prepare-agent-integration</id>
+						<goals>
+							<goal>prepare-agent-integration</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>jacoco-report-integration</id>
+						<goals>
+							<goal>report-integration</goal>
+						</goals>
+						<phase>post-integration-test</phase>
 					</execution>
 					<execution>
 						<id>jacoco-check</id>

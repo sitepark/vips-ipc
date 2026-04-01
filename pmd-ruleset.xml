@@ -29,14 +29,14 @@
   <rule ref="category/java/errorprone.xml/AvoidDuplicateLiterals">
     <properties>
       <property name="violationSuppressXPath"
-        value="./ancestor-or-self::ClassDeclaration[matches(@SimpleName, '^.*Test')]"/>
+        value="./ancestor-or-self::ClassDeclaration[matches(@SimpleName, '^.*Test|^.*IT')]"/>
     </properties>
   </rule>
 
   <rule ref="category/java/design.xml/TooManyMethods">
     <properties>
       <property name="violationSuppressXPath"
-        value="./ancestor-or-self::ClassDeclaration[matches(@SimpleName, '^.*Test')]"/>
+        value="./ancestor-or-self::ClassDeclaration[matches(@SimpleName, '^.*Test|^.*IT')]"/>
     </properties>
   </rule>
 
