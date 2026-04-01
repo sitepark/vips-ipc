@@ -1,3 +1,6 @@
+[![codecov](https://codecov.io/gh/sitepark/vips-ipc/graph/badge.svg?token=qZ7XJCXYqB)](https://codecov.io/gh/sitepark/vips-ipc)
+[![Known Vulnerabilities](https://snyk.io/test/github/sitepark/vips-ipc/badge.svg)](https://snyk.io/test/github/sitepark/vips-ipc/)
+
 # vips-ipc
 
 Inter-process communication wrapper for [libvips](https://www.libvips.org/) image processing, designed to protect
