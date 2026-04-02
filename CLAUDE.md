@@ -58,6 +58,8 @@ Manager and worker communicate over stdin/stdout using a **line-based JSON proto
   execute the command, and return it — enabling true parallel image processing. Built via
   `VipsClient.builder().buildPool(n)`. Use `configureAll()` instead of `configure()` to apply encoding settings to
   every worker in the pool.
+- **`niceLevel(int)`**: prepends `nice -n <value>` to the worker command (Linux/macOS only; silently ignored on
+  Windows). Affects all threads of the worker JVM including libvips compute threads and codec operations.
 
 ### VIPS Parallelism Model
 

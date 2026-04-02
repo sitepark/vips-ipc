@@ -111,13 +111,33 @@ VipsClient client = VipsClient.builder()
     .jarPath(Path.of("/opt/app/worker.jar"))            // default: embedded JAR
     .commandTimeoutMs(60_000)                           // default: 30 000 ms
     .concurrency(2)                                     // VIPS_CONCURRENCY per worker; default: 0 (all cores)
+    .niceLevel(10)                                      // OS scheduling priority; default: 0 (no adjustment)
     .build();
 
 // Pool: N independent worker processes for parallel throughput
 VipsClientPool pool = VipsClient.builder()
     .concurrency(1)
+    .niceLevel(10)
     .buildPool(Runtime.getRuntime().availableProcessors());
 ```
+
+#### `niceLevel(int)`
+
+Sets the OS scheduling priority of each worker process via `nice -n <value>`. Higher values lower the
+priority (1–19); negative values raise it (typically requires root). Value `0` (default) disables the
+prefix entirely.
+
+The `nice` prefix is only applied on non-Windows systems — on Windows the setting is silently ignored.
+
+| Value | Effect |
+|---|---|
+| `0` | No adjustment (default) |
+| `1`–`19` | Lower priority; `10` is a common choice for background processing |
+| `-1`–`-20` | Higher priority; requires elevated privileges on most systems |
+
+This affects the entire worker JVM — all libvips compute threads, codec operations, and GC all run at
+the adjusted priority. When combined with a pool, each worker process is started with the same nice
+level.
 
 ## Parallel Processing
 
