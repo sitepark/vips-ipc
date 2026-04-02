@@ -13,6 +13,12 @@ import com.sitepark.vips.worker.command.ThumbnailHandler;
  */
 public class HandlerRegistryDefaultFactory implements HandlerRegistryFactory {
 
+  private final String workerJarCommand;
+
+  public HandlerRegistryDefaultFactory(String workerJarCommand) {
+    this.workerJarCommand = workerJarCommand;
+  }
+
   @Override
   public HandlerRegistry create() {
     WorkerConfig config = new WorkerConfig();
@@ -22,6 +28,7 @@ public class HandlerRegistryDefaultFactory implements HandlerRegistryFactory {
         new ResizeHandler(),
         new ThumbnailHandler(),
         new ScaleTransformHandler(config),
-        new ScaleTransformBatchHandler(config));
+        new ScaleTransformBatchHandler(config),
+        workerJarCommand);
   }
 }

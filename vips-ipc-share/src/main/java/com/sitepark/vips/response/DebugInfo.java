@@ -3,4 +3,4 @@ package com.sitepark.vips.response;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record OkResponse(DebugInfo debug) implements Response {}
+public record DebugInfo(String cliCommand) {}

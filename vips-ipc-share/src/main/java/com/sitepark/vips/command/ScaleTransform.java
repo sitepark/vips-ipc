@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonInclude(JsonInclude.Include.NON_DEFAULT)
 @SuppressFBWarnings("EI_EXPOSE_REP")
 public record ScaleTransform(
     String source,
@@ -13,7 +13,8 @@ public record ScaleTransform(
     BorderStep border,
     CropStep crop,
     String background,
-    List<OutputFormat> formats)
+    List<OutputFormat> formats,
+    boolean debug)
     implements Command {
 
   public ScaleTransform {

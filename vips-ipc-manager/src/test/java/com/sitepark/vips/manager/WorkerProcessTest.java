@@ -15,7 +15,7 @@ class WorkerProcessTest {
 
   private static final String TEST_CLASSPATH = System.getProperty("java.class.path");
   private static final String FAKE_WORKER_MAIN = "com.sitepark.vips.fakeworker.Main";
-  private static final Resize RESIZE_CMD = new Resize("/src.jpg", "/dst.jpg", 0.5);
+  private static final Resize RESIZE_CMD = new Resize("/src.jpg", "/dst.jpg", 0.5, false);
 
   private static WorkerProcess fakeWorker(String mode) throws IOException {
     return new WorkerProcessBuilder()

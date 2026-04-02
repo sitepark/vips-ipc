@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 
+@SuppressWarnings("PMD.TooManyMethods")
 public class VipsClient implements AutoCloseable {
 
   private final WorkerProcess workerProcess;
@@ -51,17 +52,38 @@ public class VipsClient implements AutoCloseable {
    * Scale an image by factor (0.5 = 50%).
    */
   public void resize(Path source, Path target, double scale) throws IOException {
+    resize(source, target, scale, false);
+  }
+
+  /**
+   * Scale an image by factor (0.5 = 50%).
+   *
+   * @param debug if {@code true}, the response includes a {@code DebugInfo} object with the
+   *     equivalent vips CLI command
+   */
+  public void resize(Path source, Path target, double scale, boolean debug) throws IOException {
     workerProcess.execute(
-        new Resize(source.toAbsolutePath().toString(), target.toAbsolutePath().toString(), scale));
+        new Resize(
+            source.toAbsolutePath().toString(), target.toAbsolutePath().toString(), scale, debug));
   }
 
   /**
    * Create a thumbnail (width in pixels, height proportional).
    */
   public void thumbnail(Path source, Path target, int width) throws IOException {
+    thumbnail(source, target, width, false);
+  }
+
+  /**
+   * Create a thumbnail (width in pixels, height proportional).
+   *
+   * @param debug if {@code true}, the response includes a {@code DebugInfo} object with the
+   *     equivalent vips CLI command
+   */
+  public void thumbnail(Path source, Path target, int width, boolean debug) throws IOException {
     workerProcess.execute(
         new Thumbnail(
-            source.toAbsolutePath().toString(), target.toAbsolutePath().toString(), width));
+            source.toAbsolutePath().toString(), target.toAbsolutePath().toString(), width, debug));
   }
 
   /**
@@ -90,6 +112,25 @@ public class VipsClient implements AutoCloseable {
       String background,
       List<OutputFormat> formats)
       throws IOException {
+    scaleTransform(source, target, resize, border, crop, background, formats, false);
+  }
+
+  /**
+   * Apply a sequence of resize, border, and/or crop transformations to an image.
+   *
+   * @param debug if {@code true}, the response includes a {@code DebugInfo} object with the
+   *     equivalent vips CLI pipeline
+   */
+  public void scaleTransform(
+      Path source,
+      Path target,
+      ScaleTransform.ResizeStep resize,
+      ScaleTransform.BorderStep border,
+      ScaleTransform.CropStep crop,
+      String background,
+      List<OutputFormat> formats,
+      boolean debug)
+      throws IOException {
     workerProcess.execute(
         new ScaleTransform(
             source.toAbsolutePath().toString(),
@@ -98,7 +139,8 @@ public class VipsClient implements AutoCloseable {
             border,
             crop,
             background,
-            formats));
+            formats,
+            debug));
   }
 
   /**
@@ -112,7 +154,20 @@ public class VipsClient implements AutoCloseable {
    */
   public void scaleTransformBatch(Path source, List<ScaleTransformBatch.BatchTarget> targets)
       throws IOException {
-    workerProcess.execute(new ScaleTransformBatch(source.toAbsolutePath().toString(), targets));
+    scaleTransformBatch(source, targets, false);
+  }
+
+  /**
+   * Generate multiple scaled outputs from a single source image in one worker call.
+   *
+   * @param debug if {@code true}, the response includes a {@code DebugInfo} object with the
+   *     equivalent vips CLI pipeline for each batch target
+   */
+  public void scaleTransformBatch(
+      Path source, List<ScaleTransformBatch.BatchTarget> targets, boolean debug)
+      throws IOException {
+    workerProcess.execute(
+        new ScaleTransformBatch(source.toAbsolutePath().toString(), targets, debug));
   }
 
   @Override

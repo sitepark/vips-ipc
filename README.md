@@ -64,6 +64,8 @@ Key properties of this design:
 - **Auto-restart with retry**: If the worker dies, `VipsClient` automatically spawns a new one and retries the failed
   command once before throwing an exception
 - **Thread-safe**: A `ReentrantLock` serializes all commands to the worker — safe to share across threads
+- **Parallel throughput**: `VipsClientPool` manages N independent worker processes for multi-image parallelism — use
+  `VipsClient.builder().buildPool(n)` when processing many images concurrently
 - **Self-contained**: The worker JAR is embedded inside the manager JAR as a classpath resource; no external binary or
   installation is required
 
@@ -108,8 +110,95 @@ VipsClient client = VipsClient.builder()
     .jvmArgs(List.of("-Xmx512m"))                      // default: none
     .jarPath(Path.of("/opt/app/worker.jar"))            // default: embedded JAR
     .commandTimeoutMs(60_000)                           // default: 30 000 ms
+    .concurrency(2)                                     // VIPS_CONCURRENCY per worker; default: 0 (all cores)
     .build();
+
+// Pool: N independent worker processes for parallel throughput
+VipsClientPool pool = VipsClient.builder()
+    .concurrency(1)
+    .buildPool(Runtime.getRuntime().availableProcessors());
 ```
+
+## Parallel Processing
+
+A single `VipsClient` serializes all commands to one worker process via a `ReentrantLock`. When
+processing many images concurrently (e.g. from `parallelStream()`), all threads queue behind this
+lock. `VipsClientPool` solves this by running N independent worker processes in parallel.
+
+### Why a pool helps — the two-level parallelism model
+
+libvips already parallelizes **image computation** internally: it splits the output image into tiles
+and evaluates them concurrently across `VIPS_CONCURRENCY` threads (default: all CPU cores). This
+speeds up resize, color conversion, sharpening, and similar operations within a single image.
+
+However, **codec operations run outside this pipeline and are largely single-threaded**:
+
+| Phase | Threading |
+|---|---|
+| JPEG decode (libjpeg) | single-threaded |
+| Shrink-on-load | single-threaded |
+| VIPS resize / transform | multi-threaded (`VIPS_CONCURRENCY`) |
+| JPEG encode (libjpeg) | single-threaded |
+| PNG encode / decode (libpng) | single-threaded |
+| WebP / AVIF encode | codec-own threads (independent of `VIPS_CONCURRENCY`) |
+
+Even with `VIPS_CONCURRENCY=8`, a single worker processes only one image at a time and leaves CPU
+cores idle during encode and decode phases. A pool overlaps these phases across images:
+
+```mermaid
+sequenceDiagram
+    participant Pool
+    participant W1 as Worker 1
+    participant W2 as Worker 2
+    participant W3 as Worker 3
+
+    Pool->>W1: Image A
+    Pool->>W2: Image B
+    Pool->>W3: Image C
+    Note over W1: decode (1 core)
+    Note over W2: decode (1 core)
+    Note over W3: decode (1 core)
+    Note over W1: compute (VIPS_CONCURRENCY cores)
+    Note over W2: compute (VIPS_CONCURRENCY cores)
+    Note over W1: encode (1 core)
+    Note over W3: compute (VIPS_CONCURRENCY cores)
+    W1-->>Pool: done
+    W2-->>Pool: done
+    W3-->>Pool: done
+```
+
+### Usage
+
+```java
+int cores = Runtime.getRuntime().availableProcessors();
+try (VipsClientPool pool = VipsClient.builder().buildPool(cores)) {
+
+  files.parallelStream().forEach(source -> {
+    try {
+      pool.resize(source, output(source), 0.5);
+    } catch (IOException e) {
+      // handle per-image error
+    }
+  });
+}
+```
+
+`VipsClientPool` exposes the same methods as `VipsClient`. Use `configureAll()` instead of
+`configure()` to apply encoding settings to all workers:
+
+```java
+pool.configureAll(/* jpegInterlace */ true, /* strip */ true);
+```
+
+### Pool sizing guidance
+
+| Workload | Recommendation |
+|---|---|
+| Many small/medium images (codec-heavy) | `concurrency(1).buildPool(availableProcessors())` |
+| Large images with complex transforms (compute-heavy) | `concurrency(2).buildPool(availableProcessors() / 2)` |
+| Mixed or unknown | `buildPool(availableProcessors())` (default `VIPS_CONCURRENCY`) |
+
+The rule of thumb: `pool_size × VIPS_CONCURRENCY ≈ available CPU cores`.
 
 ## How it Works
 

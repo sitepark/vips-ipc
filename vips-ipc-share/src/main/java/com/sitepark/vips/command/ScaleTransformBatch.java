@@ -4,9 +4,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonInclude(JsonInclude.Include.NON_DEFAULT)
 @SuppressFBWarnings("EI_EXPOSE_REP")
-public record ScaleTransformBatch(String source, List<BatchTarget> targets) implements Command {
+public record ScaleTransformBatch(String source, List<BatchTarget> targets, boolean debug)
+    implements Command {
 
   public ScaleTransformBatch {
     if (targets != null) {

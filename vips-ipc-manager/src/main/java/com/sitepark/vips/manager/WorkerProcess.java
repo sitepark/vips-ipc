@@ -67,7 +67,11 @@ class WorkerProcess implements AutoCloseable {
     lock.lock();
     try {
       switch (sendCommand(cmd, true)) {
-        case OkResponse ignored -> {}
+        case OkResponse ok -> {
+          if (ok.debug() != null) {
+            LOG.info("Worker cli-command:\n" + ok.debug().cliCommand());
+          }
+        }
         case ErrorResponse err ->
             throw new IOException("Vips worker error: " + err.message() + "\n" + err.stackTrace());
         default -> throw new IOException("Unexpected response type");

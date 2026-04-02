@@ -40,7 +40,7 @@ class WorkerTest {
 
   @Test
   void testProcessesCommandAndWritesJsonResponse() throws IOException {
-    when(this.registry.dispatch(any())).thenReturn(new OkResponse());
+    when(this.registry.dispatch(any())).thenReturn(new OkResponse(null));
     ByteArrayOutputStream buf = new ByteArrayOutputStream();
 
     this.worker.run(toStream("{\"command\":\"shutdown\"}"), toPrintStream(buf));
@@ -55,7 +55,7 @@ class WorkerTest {
 
   @Test
   void testShutdownExitsLoopAfterResponse() throws IOException {
-    when(this.registry.dispatch(any())).thenReturn(new OkResponse());
+    when(this.registry.dispatch(any())).thenReturn(new OkResponse(null));
     // Two commands: shutdown + one more that must NOT be read
     ByteArrayOutputStream buf = new ByteArrayOutputStream();
 

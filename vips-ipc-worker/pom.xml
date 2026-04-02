@@ -89,6 +89,8 @@
 									<mainClass>com.sitepark.vips.worker.Main</mainClass>
 								</transformer>
 							</transformers>
+							<dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation>
+
 							<shadedArtifactAttached>true</shadedArtifactAttached>
 							<shadedClassifierName>fat</shadedClassifierName>
 						</configuration>

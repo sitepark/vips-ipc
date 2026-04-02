@@ -59,7 +59,8 @@ class ScaleTransformBatchHandlerTest {
                     null,
                     null,
                     null,
-                    List.of(OutputFormat.of(OutputFormatType.JPG)))));
+                    List.of(OutputFormat.of(OutputFormatType.JPG)))),
+            false);
 
     assertDoesNotThrow(
         () -> new ScaleTransformBatchHandler(new WorkerConfig()).handle(cmd),

@@ -20,4 +20,9 @@ public sealed interface Command
         Thumbnail,
         ScaleTransform,
         ScaleTransformBatch,
-        Shutdown {}
+        Shutdown {
+
+  default boolean debug() {
+    return false;
+  }
+}

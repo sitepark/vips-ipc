@@ -19,7 +19,7 @@ class ResizeTest {
     ObjectMapper mapper = new ObjectMapper();
     assertEquals(
         "{\"command\":\"resize\",\"source\":\"/src.jpg\",\"target\":\"/dst.jpg\",\"scale\":0.5}",
-        mapper.writeValueAsString(new Resize("/src.jpg", "/dst.jpg", 0.5)),
+        mapper.writeValueAsString(new Resize("/src.jpg", "/dst.jpg", 0.5, false)),
         "Resize should serialize with command discriminator and all fields");
   }
 
@@ -27,7 +27,7 @@ class ResizeTest {
   void testDeserialize() throws JsonProcessingException {
     ObjectMapper mapper = new ObjectMapper();
     assertEquals(
-        new Resize("/src.jpg", "/dst.jpg", 0.5),
+        new Resize("/src.jpg", "/dst.jpg", 0.5, false),
         mapper.readValue(
             "{\"command\":\"resize\",\"source\":\"/src.jpg\",\"target\":\"/dst.jpg\",\"scale\":0.5}",
             Command.class),

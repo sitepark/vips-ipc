@@ -19,7 +19,7 @@ class ThumbnailTest {
     ObjectMapper mapper = new ObjectMapper();
     assertEquals(
         "{\"command\":\"thumbnail\",\"source\":\"/src.jpg\",\"target\":\"/dst.jpg\",\"width\":800}",
-        mapper.writeValueAsString(new Thumbnail("/src.jpg", "/dst.jpg", 800)),
+        mapper.writeValueAsString(new Thumbnail("/src.jpg", "/dst.jpg", 800, false)),
         "Thumbnail should serialize with command discriminator and all fields");
   }
 
@@ -27,7 +27,7 @@ class ThumbnailTest {
   void testDeserialize() throws JsonProcessingException {
     ObjectMapper mapper = new ObjectMapper();
     assertEquals(
-        new Thumbnail("/src.jpg", "/dst.jpg", 800),
+        new Thumbnail("/src.jpg", "/dst.jpg", 800, false),
         mapper.readValue(
             "{\"command\":\"thumbnail\",\"source\":\"/src.jpg\",\"target\":\"/dst.jpg\",\"width\":800}",
             Command.class),

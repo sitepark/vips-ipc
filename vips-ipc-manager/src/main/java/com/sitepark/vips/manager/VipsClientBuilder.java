@@ -2,10 +2,13 @@ package com.sitepark.vips.manager;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 @SuppressWarnings("PMD.TooManyMethods")
 public class VipsClientBuilder {
+
+  private static final int MIN_POOL_SIZE = 1;
 
   private final WorkerProcessBuilder processBuilder = new WorkerProcessBuilder();
 
@@ -115,5 +118,54 @@ public class VipsClientBuilder {
    */
   public VipsClient build() throws IOException {
     return new VipsClient(processBuilder.build());
+  }
+
+  /**
+   * Creates a {@link VipsClientPool} backed by {@code poolSize} independent worker processes.
+   *
+   * <p>All builder settings (JAR path, JVM args, concurrency, timeout, etc.) are applied to every
+   * worker in the pool. If any worker fails to start, all previously started workers are shut down
+   * before the exception propagates.
+   *
+   * <p>Recommended usage for CPU-bound image processing on an N-core machine:
+   *
+   * <pre>{@code
+   * int cores = Runtime.getRuntime().availableProcessors();
+   * try (VipsClientPool pool = VipsClient.builder().buildPool(cores)) {
+   *   files.parallelStream().forEach(f -> {
+   *     try { pool.resize(f, output, 0.5); } catch (IOException e) { ... }
+   *   });
+   * }
+   * }</pre>
+   *
+   * <p>For maximum throughput with many small images (codec-heavy workloads), reduce per-worker
+   * VIPS threads and increase pool size:
+   *
+   * <pre>{@code
+   * VipsClient.builder().concurrency(1).buildPool(Runtime.getRuntime().availableProcessors())
+   * }</pre>
+   *
+   * @param poolSize number of worker processes; must be &gt;= 1
+   * @throws IllegalArgumentException if {@code poolSize} is less than 1
+   * @throws IOException if any worker process cannot be started (e.g. embedded JAR extraction
+   *     fails)
+   */
+  @SuppressWarnings("PMD.CloseResource")
+  public VipsClientPool buildPool(int poolSize) throws IOException {
+    if (poolSize < MIN_POOL_SIZE) {
+      throw new IllegalArgumentException("poolSize must be >= 1, got: " + poolSize);
+    }
+    List<WorkerProcess> workers = new ArrayList<>(poolSize);
+    try {
+      for (int i = 0; i < poolSize; i++) {
+        workers.add(processBuilder.build());
+      }
+    } catch (IOException e) {
+      for (WorkerProcess worker : workers) {
+        worker.close();
+      }
+      throw e;
+    }
+    return new VipsClientPool(workers);
   }
 }

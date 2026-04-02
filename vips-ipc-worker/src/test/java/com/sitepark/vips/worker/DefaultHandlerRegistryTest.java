@@ -1,7 +1,10 @@
 package com.sitepark.vips.worker;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,6 +32,8 @@ import org.junit.jupiter.api.Test;
 
 class DefaultHandlerRegistryTest {
 
+  private static final String TEST_WORKER_JAR_CMD = "java -jar worker.jar";
+
   private ConfigHandler configHandler;
   private GetEnvironmentHandler getEnvironmentHandler;
   private ResizeHandler resizeHandler;
@@ -52,7 +57,8 @@ class DefaultHandlerRegistryTest {
             this.resizeHandler,
             this.thumbnailHandler,
             this.scaleTransformHandler,
-            this.scaleTransformBatchHandler);
+            this.scaleTransformBatchHandler,
+            TEST_WORKER_JAR_CMD);
   }
 
   // ── Config ────────────────────────────────────────────────────
@@ -67,7 +73,7 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchConfigReturnsOkResponse() {
     assertEquals(
-        new OkResponse(),
+        new OkResponse(null),
         this.registry.dispatch(new Config(true, false)),
         "Config command should return OkResponse");
   }
@@ -76,7 +82,7 @@ class DefaultHandlerRegistryTest {
 
   @Test
   void testDispatchResizeDelegatesToResizeHandler() {
-    Resize cmd = new Resize("/src.jpg", "/dst.jpg", 0.5);
+    Resize cmd = new Resize("/src.jpg", "/dst.jpg", 0.5, false);
     this.registry.dispatch(cmd);
     verify(this.resizeHandler).handle(cmd);
   }
@@ -84,16 +90,41 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchResizeReturnsOkResponse() {
     assertEquals(
-        new OkResponse(),
-        this.registry.dispatch(new Resize("/src.jpg", "/dst.jpg", 0.5)),
+        new OkResponse(null),
+        this.registry.dispatch(new Resize("/src.jpg", "/dst.jpg", 0.5, false)),
         "Resize command should return OkResponse");
+  }
+
+  @Test
+  void testDispatchResizeWithDebugReturnsNonNullDebugInfo() {
+    OkResponse response =
+        (OkResponse) this.registry.dispatch(new Resize("/src.jpg", "/dst.jpg", 0.5, true));
+    assertNotNull(response.debug(), "Debug-enabled Resize command should include DebugInfo");
+  }
+
+  @Test
+  void testDispatchResizeWithDebugCliCommandContainsWorkerJarCommand() {
+    OkResponse response =
+        (OkResponse) this.registry.dispatch(new Resize("/src.jpg", "/dst.jpg", 0.5, true));
+    assertTrue(
+        response.debug().cliCommand().contains(TEST_WORKER_JAR_CMD),
+        "CLI command should contain the configured worker JAR command");
+  }
+
+  @Test
+  void testDispatchResizeWithDebugCliCommandDoesNotContainDebugFlag() {
+    OkResponse response =
+        (OkResponse) this.registry.dispatch(new Resize("/src.jpg", "/dst.jpg", 0.5, true));
+    assertFalse(
+        response.debug().cliCommand().contains("\"debug\""),
+        "CLI command JSON should not contain the debug flag");
   }
 
   // ── Thumbnail ─────────────────────────────────────────────────
 
   @Test
   void testDispatchThumbnailDelegatesToThumbnailHandler() {
-    Thumbnail cmd = new Thumbnail("/src.jpg", "/dst.jpg", 800);
+    Thumbnail cmd = new Thumbnail("/src.jpg", "/dst.jpg", 800, false);
     this.registry.dispatch(cmd);
     verify(this.thumbnailHandler).handle(cmd);
   }
@@ -101,8 +132,8 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchThumbnailReturnsOkResponse() {
     assertEquals(
-        new OkResponse(),
-        this.registry.dispatch(new Thumbnail("/src.jpg", "/dst.jpg", 800)),
+        new OkResponse(null),
+        this.registry.dispatch(new Thumbnail("/src.jpg", "/dst.jpg", 800, false)),
         "Thumbnail command should return OkResponse");
   }
 
@@ -112,7 +143,7 @@ class DefaultHandlerRegistryTest {
   void testDispatchScaleTransformDelegatesToScaleTransformHandler() {
     ScaleTransform cmd =
         new ScaleTransform(
-            "/src.jpg", "/dst", new ResizeStep(200, 100), null, null, null, List.of());
+            "/src.jpg", "/dst", new ResizeStep(200, 100), null, null, null, List.of(), false);
     this.registry.dispatch(cmd);
     verify(this.scaleTransformHandler).handle(cmd);
   }
@@ -120,10 +151,10 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchScaleTransformReturnsOkResponse() {
     assertEquals(
-        new OkResponse(),
+        new OkResponse(null),
         this.registry.dispatch(
             new ScaleTransform(
-                "/src.jpg", "/dst", new ResizeStep(200, 100), null, null, null, List.of())),
+                "/src.jpg", "/dst", new ResizeStep(200, 100), null, null, null, List.of(), false)),
         "ScaleTransform command should return OkResponse");
   }
 
@@ -131,7 +162,7 @@ class DefaultHandlerRegistryTest {
 
   @Test
   void testDispatchScaleTransformBatchDelegatesToScaleTransformBatchHandler() {
-    ScaleTransformBatch cmd = new ScaleTransformBatch("/src.jpg", List.of());
+    ScaleTransformBatch cmd = new ScaleTransformBatch("/src.jpg", List.of(), false);
     this.registry.dispatch(cmd);
     verify(this.scaleTransformBatchHandler).handle(cmd);
   }
@@ -139,8 +170,8 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchScaleTransformBatchReturnsOkResponse() {
     assertEquals(
-        new OkResponse(),
-        this.registry.dispatch(new ScaleTransformBatch("/src.jpg", List.of())),
+        new OkResponse(null),
+        this.registry.dispatch(new ScaleTransformBatch("/src.jpg", List.of(), false)),
         "ScaleTransformBatch command should return OkResponse");
   }
 
@@ -170,7 +201,7 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchShutdownReturnsOkResponse() {
     assertEquals(
-        new OkResponse(),
+        new OkResponse(null),
         this.registry.dispatch(new Shutdown()),
         "Shutdown command should return OkResponse without calling any handler");
   }
@@ -179,7 +210,7 @@ class DefaultHandlerRegistryTest {
 
   @Test
   void testDispatchHandlerThrowingExceptionReturnsErrorResponse() {
-    Resize cmd = new Resize("/src.jpg", "/dst.jpg", 0.5);
+    Resize cmd = new Resize("/src.jpg", "/dst.jpg", 0.5, false);
     org.mockito.Mockito.doThrow(new RuntimeException("vips error"))
         .when(this.resizeHandler)
         .handle(cmd);

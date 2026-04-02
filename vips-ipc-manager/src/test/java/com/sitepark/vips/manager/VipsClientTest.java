@@ -38,14 +38,14 @@ class VipsClientTest {
   @Test
   void testResizeDelegatesToWorkerProcess() throws IOException {
     this.client.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5);
-    verify(this.workerProcess).execute(new Resize("/src.jpg", "/dst.jpg", 0.5));
+    verify(this.workerProcess).execute(new Resize("/src.jpg", "/dst.jpg", 0.5, false));
   }
 
   @Test
   void testResizeThrowsIoExceptionFromWorkerProcess() throws IOException {
     doThrow(new IOException("worker error"))
         .when(this.workerProcess)
-        .execute(new Resize("/src.jpg", "/dst.jpg", 0.5));
+        .execute(new Resize("/src.jpg", "/dst.jpg", 0.5, false));
     assertThrows(
         IOException.class,
         () -> this.client.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5),
@@ -57,7 +57,7 @@ class VipsClientTest {
   @Test
   void testThumbnailDelegatesToWorkerProcess() throws IOException {
     this.client.thumbnail(Path.of("/src.jpg"), Path.of("/dst.jpg"), 800);
-    verify(this.workerProcess).execute(new Thumbnail("/src.jpg", "/dst.jpg", 800));
+    verify(this.workerProcess).execute(new Thumbnail("/src.jpg", "/dst.jpg", 800, false));
   }
 
   // ── configure ─────────────────────────────────────────────────
@@ -104,7 +104,8 @@ class VipsClientTest {
         Path.of("/src.jpg"), Path.of("/dst"), resize, border, crop, "FF0000", formats);
 
     verify(this.workerProcess)
-        .execute(new ScaleTransform("/src.jpg", "/dst", resize, border, crop, "FF0000", formats));
+        .execute(
+            new ScaleTransform("/src.jpg", "/dst", resize, border, crop, "FF0000", formats, false));
   }
 
   // ── scaleTransformBatch ───────────────────────────────────────
@@ -125,7 +126,7 @@ class VipsClientTest {
 
     this.client.scaleTransformBatch(Path.of("/src.jpg"), targets);
 
-    verify(this.workerProcess).execute(new ScaleTransformBatch("/src.jpg", targets));
+    verify(this.workerProcess).execute(new ScaleTransformBatch("/src.jpg", targets, false));
   }
 
   // ── close ─────────────────────────────────────────────────────
