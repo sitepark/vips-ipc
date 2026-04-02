@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
 @SuppressWarnings("PMD.TooManyMethods")
@@ -26,6 +27,7 @@ class WorkerProcessBuilder {
   private List<String> commandOverride;
   private long commandTimeoutMs = 30_000L;
   private int concurrency;
+  private int niceLevel;
 
   /**
    * Sets the path to the Java executable. Default: the current JVM process.
@@ -130,6 +132,20 @@ class WorkerProcessBuilder {
   }
 
   /**
+   * Sets the OS scheduling priority adjustment for the worker process via {@code nice -n <value>}.
+   * Range 1–19 lowers priority (19 = lowest). Negative values raise priority and typically require
+   * root. Value 0 (default) disables the {@code nice} prefix entirely.
+   *
+   * <p>The {@code nice} prefix is only applied on non-Windows systems. On Windows the setting is
+   * silently ignored.
+   */
+  @SuppressFBWarnings("AT_STALE_THREAD_WRITE_OF_PRIMITIVE")
+  WorkerProcessBuilder niceLevel(int niceLevel) {
+    this.niceLevel = niceLevel;
+    return this;
+  }
+
+  /**
    * Creates a {@link WorkerProcess}. If no JAR path has been set, the worker JAR embedded in the
    * manager JAR is extracted to a temporary directory.
    */
@@ -179,8 +195,19 @@ class WorkerProcessBuilder {
     return cachedJarPath.get();
   }
 
+  private static boolean isWindows() {
+    return System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
+  }
+
+  private List<String> nicePrefix() {
+    if (niceLevel == 0 || isWindows()) {
+      return List.of();
+    }
+    return List.of("nice", "-n", String.valueOf(niceLevel));
+  }
+
   private List<String> buildCommandWithJar(String java, Path jar) {
-    List<String> cmd = new ArrayList<>();
+    List<String> cmd = new ArrayList<>(nicePrefix());
     cmd.add(java);
     addCommonJvmArgs(cmd);
     cmd.add("-jar");
@@ -192,7 +219,7 @@ class WorkerProcessBuilder {
   private List<String> buildCommandWithMainClass(String java) throws IOException {
     String cp =
         workerClasspath != null ? workerClasspath : resolveJarPath().toAbsolutePath().toString();
-    List<String> cmd = new ArrayList<>();
+    List<String> cmd = new ArrayList<>(nicePrefix());
     cmd.add(java);
     addCommonJvmArgs(cmd);
     cmd.add("-cp");

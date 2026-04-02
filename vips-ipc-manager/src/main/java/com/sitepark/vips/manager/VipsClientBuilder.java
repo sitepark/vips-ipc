@@ -113,6 +113,19 @@ public class VipsClientBuilder {
   }
 
   /**
+   * Sets the OS scheduling priority adjustment for the worker process via {@code nice -n <value>}.
+   * Range 1–19 lowers priority (19 = lowest). Negative values raise priority and typically require
+   * root. Value 0 (default) disables the {@code nice} prefix entirely.
+   *
+   * <p>The {@code nice} prefix is only applied on non-Windows systems. On Windows the setting is
+   * silently ignored.
+   */
+  public VipsClientBuilder niceLevel(int niceLevel) {
+    processBuilder.niceLevel(niceLevel);
+    return this;
+  }
+
+  /**
    * Creates a {@link VipsClient}. If no JAR path has been set, the worker JAR embedded in the
    * manager JAR is extracted to a temporary directory.
    */
