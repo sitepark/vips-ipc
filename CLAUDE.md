@@ -49,17 +49,24 @@ Manager and worker communicate over stdin/stdout using a **line-based JSON proto
 ### Manager (`vips-ipc-manager`)
 
 - `VipsClient` implements `AutoCloseable`; intended for use in try-with-resources
-- Spawns the worker via `ProcessBuilder` on first use (`ensureRunning()`)
-- Uses a `ReentrantLock` to serialize commands — thread-safe, but strictly sequential (one command at a time)
-- **Auto-restart**: if the worker process dies, `WorkerProcess` restarts it and retries the command once before throwing
-- Stderr of the worker is drained in a daemon thread to prevent blocking
-- On close, sends a `Shutdown` command, waits up to 5 seconds for clean exit, then force-kills
-- **`VipsClientPool`**: manages N `WorkerProcess` instances via `ArrayBlockingQueue`; callers borrow a free worker,
-  execute the command, and return it — enabling true parallel image processing. Built via
-  `VipsClient.builder().buildPool(n)`. Use `configureAll()` instead of `configure()` to apply encoding settings to
-  every worker in the pool.
-- **`niceLevel(int)`**: prepends `nice -n <value>` to the worker command (Linux/macOS only; silently ignored on
-  Windows). Affects all threads of the worker JVM including libvips compute threads and codec operations.
+- Delegates all command execution to a `WorkerBackend` (see below)
+- **`WorkerBackend`** (interface): abstraction over the actual worker mechanism; two implementations:
+  - `WorkerProcess` (default): spawns a child JVM, communicates via stdin/stdout JSON protocol.
+    Uses a `ReentrantLock` to serialize commands — thread-safe, strictly sequential.
+    **Auto-restart**: if the worker process dies, restarts it and retries once before throwing.
+    Stderr is drained in a daemon thread. On close, sends a `Shutdown` command, waits up to
+    5 seconds for clean exit, then force-kills.
+  - `InProcessWorkerBackend`: dispatches commands directly to a `HandlerRegistry` in the same JVM.
+    Intended for debugging when a Java debugger cannot attach to child processes.
+    Subprocess settings (JAR path, JVM args, nice level, timeout) are ignored.
+    Enable via `VipsClient.builder().inProcess().build()`.
+- **`VipsClientPool`**: manages N `WorkerBackend` instances via `ArrayBlockingQueue`; callers borrow
+  a free backend, execute the command, and return it — enabling true parallel image processing.
+  Built via `VipsClient.builder().buildPool(n)`. Use `configureAll()` instead of `configure()` to
+  apply encoding settings to every worker in the pool.
+- **`niceLevel(int)`**: prepends `nice -n <value>` to the worker command (Linux/macOS only; silently
+  ignored on Windows). Affects all threads of the worker JVM including libvips compute threads and
+  codec operations.
 
 ### VIPS Parallelism Model
 
@@ -81,6 +88,22 @@ concurrency and increase pool size: `builder.concurrency(1).buildPool(availableP
 - Calls `Vips.run(arena -> {...})` (vips-ffm arena pattern) for each image operation
 - Returns one JSON response per command on stdout, flushed immediately
 - Calls `Vips.shutdown()` on clean exit; exits with code 1 on fatal error
+
+### Metadata (IPTC)
+
+`scaleTransform()` and each `BatchTarget` in `scaleTransformBatch()` accept an optional `Metadata`
+parameter (pass `null` to skip). Non-null fields are embedded as **IPTC IIM Application2** data
+into the output image:
+
+| `Metadata` field | IPTC tag | Description          |
+|-----------------|----------|----------------------|
+| `title`         | 5        | ObjectName           |
+| `copyright`     | 116      | CopyrightNotice      |
+| `description`   | 120      | Caption-Abstract     |
+
+The `IptcBuilder` helper (worker module) constructs the binary blob; each field is encoded as
+`0x1C 0x02 <tag> <len_hi> <len_lo> <utf8_bytes>`. Fields with a value exceeding 65535 UTF-8 bytes
+throw `IllegalArgumentException`.
 
 ### Adding a New Command
 

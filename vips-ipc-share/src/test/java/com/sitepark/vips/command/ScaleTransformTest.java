@@ -54,6 +54,7 @@ class ScaleTransformTest {
             new CropStep(190, 90, 5, 5),
             "FF0000",
             List.of(OutputFormat.of(OutputFormatType.JPG), OutputFormat.of(OutputFormatType.WEBP)),
+            null,
             false);
 
     String json = mapper.writeValueAsString(cmd);
@@ -84,6 +85,7 @@ class ScaleTransformTest {
             null,
             null,
             List.of(OutputFormat.of(OutputFormatType.JPG)),
+            null,
             false);
 
     String json = mapper.writeValueAsString(cmd);
@@ -116,6 +118,7 @@ class ScaleTransformTest {
             null,
             null,
             List.of(OutputFormat.of(OutputFormatType.JPG), OutputFormat.of(OutputFormatType.AVIF)),
+            null,
             false);
 
     assertEquals(expected, cmd, "Deserialized ScaleTransform should match expected");

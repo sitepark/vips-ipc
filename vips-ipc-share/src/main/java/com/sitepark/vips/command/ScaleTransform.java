@@ -14,6 +14,7 @@ public record ScaleTransform(
     CropStep crop,
     String background,
     List<OutputFormat> formats,
+    Metadata metadata,
     boolean debug)
     implements Command {
 

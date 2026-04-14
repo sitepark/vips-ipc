@@ -27,7 +27,8 @@ public class ScaleTransformHandler implements CommandHandler<ScaleTransform> {
               cmd.background(),
               cmd.target(),
               cmd.formats(),
-              config);
+              config,
+              cmd.metadata());
         });
   }
 }

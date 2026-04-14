@@ -1,5 +1,7 @@
 package com.sitepark.vips.manager;
 
+import com.sitepark.vips.worker.HandlerRegistryDefaultFactory;
+import com.sitepark.vips.worker.HandlerRegistryFactory;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -11,6 +13,7 @@ public class VipsClientBuilder {
   private static final int MIN_POOL_SIZE = 1;
 
   private final WorkerProcessBuilder processBuilder = new WorkerProcessBuilder();
+  private HandlerRegistryFactory handlerRegistryFactory;
 
   /**
    * Sets the path to the Java executable. Default: the current JVM process.
@@ -126,10 +129,45 @@ public class VipsClientBuilder {
   }
 
   /**
+   * Enables in-process mode: commands are dispatched directly to the handler registry in the
+   * current JVM instead of spawning a worker subprocess. Intended for debugging with a Java
+   * debugger that cannot attach to child JVM processes.
+   *
+   * <p>In this mode all subprocess-related settings (JAR path, JVM arguments, concurrency, nice
+   * level, timeout) are ignored. Requires libvips to be installed and accessible to the current
+   * JVM.
+   */
+  public VipsClientBuilder inProcess() {
+    this.handlerRegistryFactory = new HandlerRegistryDefaultFactory("in-process");
+    return this;
+  }
+
+  /**
+   * Enables in-process mode: commands are dispatched directly to the handler registry in the
+   * current JVM instead of spawning a worker subprocess. Intended for debugging with a Java
+   * debugger that cannot attach to child JVM processes.
+   *
+   * <p>In this mode all subprocess-related settings (JAR path, JVM arguments, concurrency, nice
+   * level, timeout) are ignored. Requires libvips to be installed and accessible to the current
+   * JVM.
+   */
+  @SuppressWarnings("PMD.NullAssignment")
+  public VipsClientBuilder inProcess(boolean inProcess) {
+    if (inProcess) {
+      return this.inProcess();
+    }
+    this.handlerRegistryFactory = null;
+    return this;
+  }
+
+  /**
    * Creates a {@link VipsClient}. If no JAR path has been set, the worker JAR embedded in the
    * manager JAR is extracted to a temporary directory.
    */
   public VipsClient build() throws IOException {
+    if (handlerRegistryFactory != null) {
+      return new VipsClient(new InProcessWorkerBackend(handlerRegistryFactory));
+    }
     return new VipsClient(processBuilder.build());
   }
 
@@ -160,21 +198,28 @@ public class VipsClientBuilder {
    *
    * @param poolSize number of worker processes; must be &gt;= 1
    * @throws IllegalArgumentException if {@code poolSize} is less than 1
-   * @throws IOException if any worker process cannot be started (e.g. embedded JAR extraction
-   *     fails)
+   * @throws IOException              if any worker process cannot be started (e.g. embedded JAR extraction
+   *                                  fails)
    */
   @SuppressWarnings("PMD.CloseResource")
   public VipsClientPool buildPool(int poolSize) throws IOException {
     if (poolSize < MIN_POOL_SIZE) {
       throw new IllegalArgumentException("poolSize must be >= 1, got: " + poolSize);
     }
-    List<WorkerProcess> workers = new ArrayList<>(poolSize);
+    if (handlerRegistryFactory != null) {
+      List<WorkerBackend> workers = new ArrayList<>(poolSize);
+      for (int i = 0; i < poolSize; i++) {
+        workers.add(new InProcessWorkerBackend(handlerRegistryFactory));
+      }
+      return new VipsClientPool(workers);
+    }
+    List<WorkerBackend> workers = new ArrayList<>(poolSize);
     try {
       for (int i = 0; i < poolSize; i++) {
         workers.add(processBuilder.build());
       }
     } catch (IOException e) {
-      for (WorkerProcess worker : workers) {
+      for (WorkerBackend worker : workers) {
         worker.close();
       }
       throw e;

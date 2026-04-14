@@ -1,31 +1,15 @@
 package com.sitepark.vips.worker;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-import com.sitepark.vips.command.Config;
-import com.sitepark.vips.command.GetEnvironment;
-import com.sitepark.vips.command.Resize;
-import com.sitepark.vips.command.ScaleTransform;
+import com.sitepark.vips.command.*;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
-import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.Shutdown;
-import com.sitepark.vips.command.Thumbnail;
 import com.sitepark.vips.response.ErrorResponse;
 import com.sitepark.vips.response.OkResponse;
 import com.sitepark.vips.response.VipsEnvironmentResponse;
-import com.sitepark.vips.worker.command.ConfigHandler;
-import com.sitepark.vips.worker.command.GetEnvironmentHandler;
-import com.sitepark.vips.worker.command.ResizeHandler;
-import com.sitepark.vips.worker.command.ScaleTransformBatchHandler;
-import com.sitepark.vips.worker.command.ScaleTransformHandler;
-import com.sitepark.vips.worker.command.ThumbnailHandler;
+import com.sitepark.vips.worker.command.*;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -143,7 +127,7 @@ class DefaultHandlerRegistryTest {
   void testDispatchScaleTransformDelegatesToScaleTransformHandler() {
     ScaleTransform cmd =
         new ScaleTransform(
-            "/src.jpg", "/dst", new ResizeStep(200, 100), null, null, null, List.of(), false);
+            "/src.jpg", "/dst", new ResizeStep(200, 100), null, null, null, List.of(), null, false);
     this.registry.dispatch(cmd);
     verify(this.scaleTransformHandler).handle(cmd);
   }
@@ -154,7 +138,15 @@ class DefaultHandlerRegistryTest {
         new OkResponse(null),
         this.registry.dispatch(
             new ScaleTransform(
-                "/src.jpg", "/dst", new ResizeStep(200, 100), null, null, null, List.of(), false)),
+                "/src.jpg",
+                "/dst",
+                new ResizeStep(200, 100),
+                null,
+                null,
+                null,
+                List.of(),
+                null,
+                false)),
         "ScaleTransform command should return OkResponse");
   }
 

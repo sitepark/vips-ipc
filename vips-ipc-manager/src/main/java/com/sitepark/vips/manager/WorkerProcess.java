@@ -33,7 +33,7 @@ import java.util.logging.Logger;
   "PMD.CyclomaticComplexity",
   "PMD.CognitiveComplexity"
 })
-class WorkerProcess implements AutoCloseable {
+class WorkerProcess implements WorkerBackend {
 
   private static final Logger LOG = Logger.getLogger(WorkerProcess.class.getName());
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -63,7 +63,8 @@ class WorkerProcess implements AutoCloseable {
 
   // ── Public API ─────────────────────────────────────────────
 
-  void execute(Command cmd) throws IOException {
+  @Override
+  public void execute(Command cmd) throws IOException {
     lock.lock();
     try {
       switch (sendCommand(cmd, true)) {
@@ -81,7 +82,8 @@ class WorkerProcess implements AutoCloseable {
     }
   }
 
-  VipsEnvironmentResponse queryEnvironment() throws IOException {
+  @Override
+  public VipsEnvironmentResponse queryEnvironment() throws IOException {
     lock.lock();
     try {
       return switch (sendCommand(new GetEnvironment(), true)) {

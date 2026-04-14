@@ -69,6 +69,21 @@ class WorkerTest {
         "Worker should write exactly one response and stop after Shutdown");
   }
 
+  // ── loop control ──────────────────────────────────────────────
+
+  @Test
+  void testNonShutdownCommandContinuesLoopUntilEof() throws IOException {
+    when(this.registry.dispatch(any())).thenReturn(new OkResponse(null));
+    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+
+    this.worker.run(toStream("{\"command\":\"get-environment\"}"), toPrintStream(buf));
+
+    assertEquals(
+        1,
+        buf.toString(StandardCharsets.UTF_8).trim().split("\n").length,
+        "Non-Shutdown command should be processed and run() should return cleanly on EOF");
+  }
+
   // ── error handling ────────────────────────────────────────────
 
   @Test

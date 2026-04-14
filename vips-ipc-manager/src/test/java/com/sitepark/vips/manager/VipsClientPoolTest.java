@@ -1,26 +1,14 @@
 package com.sitepark.vips.manager;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
-import com.sitepark.vips.command.Config;
-import com.sitepark.vips.command.OutputFormat;
-import com.sitepark.vips.command.OutputFormatType;
-import com.sitepark.vips.command.Resize;
-import com.sitepark.vips.command.ScaleTransform;
+import com.sitepark.vips.command.*;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.CropStep;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
-import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
-import com.sitepark.vips.command.Thumbnail;
 import com.sitepark.vips.response.VipsEnvironmentResponse;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -31,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 class VipsClientPoolTest {
 
-  private WorkerProcess worker;
+  private WorkerBackend worker;
   private VipsClientPool pool;
 
   @BeforeEach
@@ -75,8 +63,8 @@ class VipsClientPoolTest {
   @Test
   @SuppressWarnings("PMD.CloseResource")
   void testConfigureAllConfiguresAllWorkers() throws IOException {
-    WorkerProcess worker1 = mock();
-    WorkerProcess worker2 = mock();
+    WorkerBackend worker1 = mock();
+    WorkerBackend worker2 = mock();
     AtomicInteger callCount = new AtomicInteger(0);
     doAnswer(
             inv -> {
@@ -118,11 +106,12 @@ class VipsClientPoolTest {
     List<OutputFormat> formats = List.of(OutputFormat.of(OutputFormatType.JPG));
 
     this.pool.scaleTransform(
-        Path.of("/src.jpg"), Path.of("/dst"), resize, border, crop, "FF0000", formats);
+        Path.of("/src.jpg"), Path.of("/dst"), resize, border, crop, "FF0000", formats, null);
 
     verify(this.worker)
         .execute(
-            new ScaleTransform("/src.jpg", "/dst", resize, border, crop, "FF0000", formats, false));
+            new ScaleTransform(
+                "/src.jpg", "/dst", resize, border, crop, "FF0000", formats, null, false));
   }
 
   // ── scaleTransformBatch ───────────────────────────────────────
@@ -137,7 +126,8 @@ class VipsClientPoolTest {
                 null,
                 null,
                 null,
-                List.of(OutputFormat.of(OutputFormatType.JPG))));
+                List.of(OutputFormat.of(OutputFormatType.JPG)),
+                null));
 
     this.pool.scaleTransformBatch(Path.of("/src.jpg"), targets);
 
@@ -173,8 +163,8 @@ class VipsClientPoolTest {
   @Test
   @SuppressWarnings("PMD.CloseResource")
   void testCloseCallsCloseOnFirstWorker() {
-    WorkerProcess worker1 = mock();
-    WorkerProcess worker2 = mock();
+    WorkerBackend worker1 = mock();
+    WorkerBackend worker2 = mock();
     new VipsClientPool(List.of(worker1, worker2)).close();
     verify(worker1).close();
   }
@@ -182,8 +172,8 @@ class VipsClientPoolTest {
   @Test
   @SuppressWarnings("PMD.CloseResource")
   void testCloseCallsCloseOnSecondWorker() {
-    WorkerProcess worker1 = mock();
-    WorkerProcess worker2 = mock();
+    WorkerBackend worker1 = mock();
+    WorkerBackend worker2 = mock();
     new VipsClientPool(List.of(worker1, worker2)).close();
     verify(worker2).close();
   }

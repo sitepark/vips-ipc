@@ -57,10 +57,16 @@ public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransform
             int height = thumb.getHeight();
             int bands = VipsHelper.image_get_bands(thumb.getUnsafeStructAddress());
             int format = VipsHelper.image_get_format(thumb.getUnsafeStructAddress());
+            int interpretation =
+                VipsHelper.image_get_interpretation(thumb.getUnsafeStructAddress());
             double xres = VipsHelper.image_get_xres(thumb.getUnsafeStructAddress());
             double yres = VipsHelper.image_get_yres(thumb.getUnsafeStructAddress());
             base = VImage.newFromMemory(arena, pixels, width, height, bands, format);
-            base = base.copy(VipsOption.Double("xres", xres), VipsOption.Double("yres", yres));
+            base =
+                base.copy(
+                    VipsOption.Int("interpretation", interpretation),
+                    VipsOption.Double("xres", xres),
+                    VipsOption.Double("yres", yres));
           } else {
             base = VImage.newFromFile(arena, cmd.source());
           }
@@ -74,7 +80,8 @@ public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransform
                 target.background(),
                 target.target(),
                 target.formats(),
-                config);
+                config,
+                target.metadata());
           }
         });
   }

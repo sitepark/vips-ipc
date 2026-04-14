@@ -1,11 +1,6 @@
 package com.sitepark.vips.manager;
 
-import com.sitepark.vips.command.Config;
-import com.sitepark.vips.command.OutputFormat;
-import com.sitepark.vips.command.Resize;
-import com.sitepark.vips.command.ScaleTransform;
-import com.sitepark.vips.command.ScaleTransformBatch;
-import com.sitepark.vips.command.Thumbnail;
+import com.sitepark.vips.command.*;
 import com.sitepark.vips.response.VipsEnvironmentResponse;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -53,14 +48,14 @@ public class VipsClientPool implements AutoCloseable {
 
   private static final Logger LOG = Logger.getLogger(VipsClientPool.class.getName());
 
-  private final BlockingQueue<WorkerProcess> pool;
+  private final BlockingQueue<WorkerBackend> pool;
 
   @FunctionalInterface
   private interface WorkerAction<T> {
-    T apply(WorkerProcess worker) throws IOException;
+    T apply(WorkerBackend worker) throws IOException;
   }
 
-  VipsClientPool(List<WorkerProcess> workers) {
+  VipsClientPool(List<WorkerBackend> workers) {
     this.pool = new ArrayBlockingQueue<>(workers.size(), true);
     this.pool.addAll(workers);
   }
@@ -68,7 +63,7 @@ public class VipsClientPool implements AutoCloseable {
   // ── Core helper ───────────────────────────────────────────────
 
   private <T> T execute(WorkerAction<T> action) throws IOException {
-    WorkerProcess worker;
+    WorkerBackend worker;
     try {
       worker = pool.take();
     } catch (InterruptedException e) {
@@ -95,7 +90,7 @@ public class VipsClientPool implements AutoCloseable {
    * images.
    */
   public VipsEnvironmentResponse getEnvironment() throws IOException {
-    return execute(WorkerProcess::queryEnvironment);
+    return execute(WorkerBackend::queryEnvironment);
   }
 
   /**
@@ -106,9 +101,9 @@ public class VipsClientPool implements AutoCloseable {
    * settings to all workers in the pool.
    *
    * @param jpegInterlace {@code true} for progressive JPEG, {@code false} for baseline, or
-   *     {@code null} to keep current
-   * @param strip {@code true} to strip all metadata (EXIF, IPTC, XMP), or {@code null} to keep
-   *     current
+   *                      {@code null} to keep current
+   * @param strip         {@code true} to strip all metadata (EXIF, IPTC, XMP), or {@code null} to keep
+   *                      current
    */
   public void configure(Boolean jpegInterlace, Boolean strip) throws IOException {
     execute(
@@ -126,9 +121,9 @@ public class VipsClientPool implements AutoCloseable {
    * encoding settings across all workers.
    *
    * @param jpegInterlace {@code true} for progressive JPEG, {@code false} for baseline, or
-   *     {@code null} to keep current
-   * @param strip {@code true} to strip all metadata (EXIF, IPTC, XMP), or {@code null} to keep
-   *     current
+   *                      {@code null} to keep current
+   * @param strip         {@code true} to strip all metadata (EXIF, IPTC, XMP), or {@code null} to keep
+   *                      current
    */
   public void configureAll(Boolean jpegInterlace, Boolean strip) throws IOException {
     int size = pool.size();
@@ -148,7 +143,7 @@ public class VipsClientPool implements AutoCloseable {
    * Scale an image by factor (0.5 = 50%).
    *
    * @param debug if {@code true}, the response includes a {@code DebugInfo} object with the
-   *     equivalent vips CLI command
+   *              equivalent vips CLI command
    */
   public void resize(Path source, Path target, double scale, boolean debug) throws IOException {
     execute(
@@ -174,7 +169,7 @@ public class VipsClientPool implements AutoCloseable {
    * Create a thumbnail (width in pixels, height proportional).
    *
    * @param debug if {@code true}, the response includes a {@code DebugInfo} object with the
-   *     equivalent vips CLI command
+   *              equivalent vips CLI command
    */
   public void thumbnail(Path source, Path target, int width, boolean debug) throws IOException {
     execute(
@@ -195,31 +190,13 @@ public class VipsClientPool implements AutoCloseable {
    * <p>Steps are applied in order: resize → border → crop. One output file is written per
    * requested format, using {@code target} as the base path (without extension).
    *
-   * @param source source image path
-   * @param target base output path without file extension
-   * @param resize exact target dimensions (width × height), or {@code null} to skip
-   * @param border symmetric border to add, or {@code null} to skip
-   * @param crop region to extract after other steps, or {@code null} to skip
+   * @param source     source image path
+   * @param target     base output path without file extension
+   * @param resize     exact target dimensions (width × height), or {@code null} to skip
+   * @param border     symmetric border to add, or {@code null} to skip
+   * @param crop       region to extract after other steps, or {@code null} to skip
    * @param background hex color for the border fill (e.g. "FFFFFF"), or {@code null} for white
-   * @param formats output formats to write (e.g. JPG, WEBP, AVIF)
-   */
-  public void scaleTransform(
-      Path source,
-      Path target,
-      ScaleTransform.ResizeStep resize,
-      ScaleTransform.BorderStep border,
-      ScaleTransform.CropStep crop,
-      String background,
-      List<OutputFormat> formats)
-      throws IOException {
-    scaleTransform(source, target, resize, border, crop, background, formats, false);
-  }
-
-  /**
-   * Apply a sequence of resize, border, and/or crop transformations to an image.
-   *
-   * @param debug if {@code true}, the response includes a {@code DebugInfo} object with the
-   *     equivalent vips CLI pipeline
+   * @param formats    output formats to write (e.g. JPG, WEBP, AVIF)
    */
   public void scaleTransform(
       Path source,
@@ -229,6 +206,26 @@ public class VipsClientPool implements AutoCloseable {
       ScaleTransform.CropStep crop,
       String background,
       List<OutputFormat> formats,
+      Metadata metadata)
+      throws IOException {
+    scaleTransform(source, target, resize, border, crop, background, formats, metadata, false);
+  }
+
+  /**
+   * Apply a sequence of resize, border, and/or crop transformations to an image.
+   *
+   * @param debug if {@code true}, the response includes a {@code DebugInfo} object with the
+   *              equivalent vips CLI pipeline
+   */
+  public void scaleTransform(
+      Path source,
+      Path target,
+      ScaleTransform.ResizeStep resize,
+      ScaleTransform.BorderStep border,
+      ScaleTransform.CropStep crop,
+      String background,
+      List<OutputFormat> formats,
+      Metadata metadata,
       boolean debug)
       throws IOException {
     execute(
@@ -242,6 +239,7 @@ public class VipsClientPool implements AutoCloseable {
                   crop,
                   background,
                   formats,
+                  metadata,
                   debug));
           return null;
         });
@@ -253,7 +251,7 @@ public class VipsClientPool implements AutoCloseable {
    * <p>The source image is loaded only once, then all targets are produced from the in-memory base
    * image.
    *
-   * @param source source image path
+   * @param source  source image path
    * @param targets list of output targets; each target defines its own transform steps and formats
    */
   public void scaleTransformBatch(Path source, List<ScaleTransformBatch.BatchTarget> targets)
@@ -265,7 +263,7 @@ public class VipsClientPool implements AutoCloseable {
    * Generate multiple scaled outputs from a single source image in one worker call.
    *
    * @param debug if {@code true}, the response includes a {@code DebugInfo} object with the
-   *     equivalent vips CLI pipeline for each batch target
+   *              equivalent vips CLI pipeline for each batch target
    */
   public void scaleTransformBatch(
       Path source, List<ScaleTransformBatch.BatchTarget> targets, boolean debug)
@@ -290,9 +288,9 @@ public class VipsClientPool implements AutoCloseable {
   @Override
   @SuppressWarnings("PMD.CloseResource")
   public void close() {
-    List<WorkerProcess> remaining = new ArrayList<>(pool.size());
+    List<WorkerBackend> remaining = new ArrayList<>(pool.size());
     pool.drainTo(remaining);
-    for (WorkerProcess worker : remaining) {
+    for (WorkerBackend worker : remaining) {
       worker.close();
     }
   }

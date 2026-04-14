@@ -25,7 +25,8 @@ public record ScaleTransformBatch(String source, List<BatchTarget> targets, bool
       ScaleTransform.BorderStep border,
       ScaleTransform.CropStep crop,
       String background,
-      List<OutputFormat> formats) {
+      List<OutputFormat> formats,
+      Metadata metadata) {
 
     public BatchTarget {
       if (formats != null) {

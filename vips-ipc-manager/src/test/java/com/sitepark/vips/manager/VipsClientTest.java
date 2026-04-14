@@ -1,20 +1,13 @@
 package com.sitepark.vips.manager;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
-import com.sitepark.vips.command.Config;
-import com.sitepark.vips.command.Resize;
-import com.sitepark.vips.command.ScaleTransform;
+import com.sitepark.vips.command.*;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.CropStep;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
-import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
-import com.sitepark.vips.command.Thumbnail;
 import com.sitepark.vips.response.VipsEnvironmentResponse;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -24,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 class VipsClientTest {
 
-  private WorkerProcess workerProcess;
+  private WorkerBackend workerProcess;
   private VipsClient client;
 
   @BeforeEach
@@ -101,11 +94,12 @@ class VipsClientTest {
                 com.sitepark.vips.command.OutputFormatType.JPG));
 
     this.client.scaleTransform(
-        Path.of("/src.jpg"), Path.of("/dst"), resize, border, crop, "FF0000", formats);
+        Path.of("/src.jpg"), Path.of("/dst"), resize, border, crop, "FF0000", formats, null);
 
     verify(this.workerProcess)
         .execute(
-            new ScaleTransform("/src.jpg", "/dst", resize, border, crop, "FF0000", formats, false));
+            new ScaleTransform(
+                "/src.jpg", "/dst", resize, border, crop, "FF0000", formats, null, false));
   }
 
   // ── scaleTransformBatch ───────────────────────────────────────
@@ -122,7 +116,8 @@ class VipsClientTest {
                 null,
                 List.of(
                     com.sitepark.vips.command.OutputFormat.of(
-                        com.sitepark.vips.command.OutputFormatType.JPG))));
+                        com.sitepark.vips.command.OutputFormatType.JPG)),
+                null));
 
     this.client.scaleTransformBatch(Path.of("/src.jpg"), targets);
 

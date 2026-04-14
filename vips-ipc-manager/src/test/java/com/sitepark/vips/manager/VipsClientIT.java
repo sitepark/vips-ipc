@@ -106,7 +106,8 @@ class VipsClientIT {
         null,
         null,
         null,
-        List.of(OutputFormat.of(OutputFormatType.JPG)));
+        List.of(OutputFormat.of(OutputFormatType.JPG)),
+        null);
     assertThat(Files.size(tempDir.resolve("scaled.jpg")))
         .as("scaleTransform() should produce a non-empty JPG output file")
         .isGreaterThan(0L);
@@ -122,7 +123,8 @@ class VipsClientIT {
         null,
         null,
         null,
-        List.of(OutputFormat.of(OutputFormatType.WEBP)));
+        List.of(OutputFormat.of(OutputFormatType.WEBP)),
+        null);
     assertThat(Files.size(tempDir.resolve("scaled_webp.webp")))
         .as("scaleTransform() should produce a non-empty WebP output file")
         .isGreaterThan(0L);

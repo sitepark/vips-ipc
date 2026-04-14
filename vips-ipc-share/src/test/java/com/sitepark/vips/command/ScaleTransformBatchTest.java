@@ -44,7 +44,8 @@ class ScaleTransformBatchTest {
                     null,
                     null,
                     null,
-                    List.of(OutputFormat.of(OutputFormatType.JPG))),
+                    List.of(OutputFormat.of(OutputFormatType.JPG)),
+                    null),
                 new BatchTarget(
                     "/out/small",
                     new ResizeStep(200, 150),
@@ -53,7 +54,8 @@ class ScaleTransformBatchTest {
                     null,
                     List.of(
                         OutputFormat.of(OutputFormatType.JPG),
-                        OutputFormat.of(OutputFormatType.WEBP)))),
+                        OutputFormat.of(OutputFormatType.WEBP)),
+                    null)),
             false);
 
     String json = mapper.writeValueAsString(cmd);
@@ -99,9 +101,9 @@ class ScaleTransformBatchTest {
                     null,
                     List.of(
                         OutputFormat.of(OutputFormatType.JPG),
-                        OutputFormat.of(OutputFormatType.AVIF)))),
+                        OutputFormat.of(OutputFormatType.AVIF)),
+                    null)),
             false);
-
     assertEquals(expected, cmd, "Deserialized batch command should match expected");
   }
 }

@@ -55,6 +55,34 @@ class WorkerProcessBuilderTest {
   }
 
   @Test
+  void testInitialHeapSizeDoesNotBreakWorker() throws IOException {
+    // 16m < default maximumHeapSize(32m), so -Xms16m -Xmx32m is a valid combination
+    try (WorkerProcess wp = fakeWorkerBuilder().initialHeapSize("16m").build()) {
+      assertDoesNotThrow(
+          () -> wp.execute(RESIZE_CMD),
+          "Worker with initialHeapSize('16m') should start and execute successfully");
+    }
+  }
+
+  @Test
+  void testMaximumHeapSizeDoesNotBreakWorker() throws IOException {
+    try (WorkerProcess wp = fakeWorkerBuilder().maximumHeapSize("64m").build()) {
+      assertDoesNotThrow(
+          () -> wp.execute(RESIZE_CMD),
+          "Worker with maximumHeapSize('64m') should start and execute successfully");
+    }
+  }
+
+  @Test
+  void testJvmArgsDoesNotBreakWorker() throws IOException {
+    try (WorkerProcess wp = fakeWorkerBuilder().jvmArgs(List.of("-Djvm.test.arg=true")).build()) {
+      assertDoesNotThrow(
+          () -> wp.execute(RESIZE_CMD),
+          "Worker with additional JVM args should start and execute successfully");
+    }
+  }
+
+  @Test
   void testCommandOverrideIsUnaffectedByNiceLevel() throws IOException {
     String javaExe =
         ProcessHandle.current()
