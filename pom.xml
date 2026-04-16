@@ -6,7 +6,7 @@
 
 	<groupId>com.sitepark</groupId>
 	<artifactId>vips-ipc</artifactId>
-	<version>1.1.0-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<packaging>pom</packaging>
 
 	<name>vips-ipc</name>
@@ -49,7 +49,7 @@
 	<scm>
 		<connection>scm:git:git@github.com:sitepark/vips-ipc.git</connection>
 		<developerConnection>scm:git:git@github.com:sitepark/vips-ipc.git</developerConnection>
-		<tag>HEAD</tag>
+		<tag>1.0.0</tag>
 		<url>https://github.com/sitepark/vips-ipc</url>
 	</scm>
 
