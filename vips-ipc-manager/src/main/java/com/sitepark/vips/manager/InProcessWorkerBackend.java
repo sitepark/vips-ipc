@@ -2,11 +2,11 @@ package com.sitepark.vips.manager;
 
 import com.sitepark.vips.command.Command;
 import com.sitepark.vips.command.GetEnvironment;
+import com.sitepark.vips.handler.HandlerRegistry;
+import com.sitepark.vips.handler.HandlerRegistryFactory;
 import com.sitepark.vips.response.ErrorResponse;
 import com.sitepark.vips.response.OkResponse;
 import com.sitepark.vips.response.VipsEnvironmentResponse;
-import com.sitepark.vips.worker.HandlerRegistry;
-import com.sitepark.vips.worker.HandlerRegistryFactory;
 import java.io.IOException;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;

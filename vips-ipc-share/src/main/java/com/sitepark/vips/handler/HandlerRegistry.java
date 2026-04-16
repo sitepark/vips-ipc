@@ -1,4 +1,4 @@
-package com.sitepark.vips.worker;
+package com.sitepark.vips.handler;
 
 import com.sitepark.vips.command.Command;
 import com.sitepark.vips.response.Response;

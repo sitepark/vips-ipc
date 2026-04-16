@@ -1,11 +1,11 @@
 package com.sitepark.vips.manager;
 
-import com.sitepark.vips.worker.HandlerRegistryDefaultFactory;
-import com.sitepark.vips.worker.HandlerRegistryFactory;
+import com.sitepark.vips.handler.HandlerRegistryFactory;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ServiceLoader;
 
 @SuppressWarnings("PMD.TooManyMethods")
 public class VipsClientBuilder {
@@ -138,7 +138,14 @@ public class VipsClientBuilder {
    * JVM.
    */
   public VipsClientBuilder inProcess() {
-    this.handlerRegistryFactory = new HandlerRegistryDefaultFactory("in-process");
+    this.handlerRegistryFactory =
+        ServiceLoader.load(HandlerRegistryFactory.class)
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new IllegalStateException(
+                        "No HandlerRegistryFactory found on classpath."
+                            + " Add vips-ipc-worker as a runtime dependency."));
     return this;
   }
 

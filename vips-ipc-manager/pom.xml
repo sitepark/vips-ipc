@@ -29,13 +29,6 @@
 		</dependency>
 
 		<dependency>
-			<groupId>com.sitepark</groupId>
-			<artifactId>vips-ipc-worker</artifactId>
-			<version>${project.version}</version>
-			<optional>true</optional>
-		</dependency>
-
-		<dependency>
 			<groupId>com.github.spotbugs</groupId>
 			<artifactId>spotbugs-annotations</artifactId>
 		</dependency>

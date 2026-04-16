@@ -3,6 +3,7 @@ package com.sitepark.vips.worker;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sitepark.vips.command.Command;
 import com.sitepark.vips.command.Shutdown;
+import com.sitepark.vips.handler.HandlerRegistry;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;

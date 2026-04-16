@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.sitepark.vips.handler.HandlerRegistry;
 import com.sitepark.vips.response.OkResponse;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

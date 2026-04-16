@@ -1,4 +1,4 @@
-package com.sitepark.vips.worker;
+package com.sitepark.vips.handler;
 
 /** Factory that creates a {@link HandlerRegistry} for the worker process. */
 @FunctionalInterface

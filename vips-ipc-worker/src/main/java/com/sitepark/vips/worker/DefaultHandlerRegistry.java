@@ -11,6 +11,7 @@ import com.sitepark.vips.command.ScaleTransform;
 import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.Shutdown;
 import com.sitepark.vips.command.Thumbnail;
+import com.sitepark.vips.handler.HandlerRegistry;
 import com.sitepark.vips.response.DebugInfo;
 import com.sitepark.vips.response.ErrorResponse;
 import com.sitepark.vips.response.OkResponse;

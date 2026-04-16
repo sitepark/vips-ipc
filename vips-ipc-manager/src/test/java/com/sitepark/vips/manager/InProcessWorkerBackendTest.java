@@ -10,11 +10,11 @@ import static org.mockito.Mockito.when;
 
 import com.sitepark.vips.command.GetEnvironment;
 import com.sitepark.vips.command.Resize;
+import com.sitepark.vips.handler.HandlerRegistry;
 import com.sitepark.vips.response.DebugInfo;
 import com.sitepark.vips.response.ErrorResponse;
 import com.sitepark.vips.response.OkResponse;
 import com.sitepark.vips.response.VipsEnvironmentResponse;
-import com.sitepark.vips.worker.HandlerRegistry;
 import java.io.IOException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
