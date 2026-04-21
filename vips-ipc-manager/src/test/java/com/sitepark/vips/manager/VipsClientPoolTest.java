@@ -147,7 +147,7 @@ class VipsClientPoolTest {
   @Test
   @SuppressWarnings("PMD.AvoidCatchingGenericException")
   void testWorkerIsReturnedAfterExceptionInWorker() throws IOException {
-    doThrow(new IOException("worker error")).doNothing().when(this.worker).execute(any());
+    doThrow(new IOException("worker error")).doReturn(null).when(this.worker).execute(any());
     try {
       this.pool.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5);
     } catch (Exception ignored) {

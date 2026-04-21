@@ -19,6 +19,7 @@ class DefaultHandlerRegistryTest {
   private static final String TEST_WORKER_JAR_CMD = "java -jar worker.jar";
 
   private ConfigHandler configHandler;
+  private ExtractHandler extractHandler;
   private GetEnvironmentHandler getEnvironmentHandler;
   private ResizeHandler resizeHandler;
   private ThumbnailHandler thumbnailHandler;
@@ -29,6 +30,7 @@ class DefaultHandlerRegistryTest {
   @BeforeEach
   void setUp() {
     this.configHandler = mock();
+    this.extractHandler = mock();
     this.getEnvironmentHandler = mock();
     this.resizeHandler = mock();
     this.thumbnailHandler = mock();
@@ -37,6 +39,7 @@ class DefaultHandlerRegistryTest {
     this.registry =
         new DefaultHandlerRegistry(
             this.configHandler,
+            this.extractHandler,
             this.getEnvironmentHandler,
             this.resizeHandler,
             this.thumbnailHandler,
@@ -57,9 +60,31 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchConfigReturnsOkResponse() {
     assertEquals(
-        new OkResponse(null),
+        new OkResponse(null, null),
         this.registry.dispatch(new Config(true, false)),
         "Config command should return OkResponse");
+  }
+
+  // ── Extract ───────────────────────────────────────────────────
+
+  @Test
+  void testDispatchExtractDelegatesToExtractHandler() {
+    Extract cmd = new Extract("/src.jpg", 5, false);
+    when(this.extractHandler.handle(cmd))
+        .thenReturn(new ExtractResult(100, 200, 3, false, new ColorPalette(List.of())));
+    this.registry.dispatch(cmd);
+    verify(this.extractHandler).handle(cmd);
+  }
+
+  @Test
+  void testDispatchExtractReturnsExtractResponse() {
+    Extract cmd = new Extract("/src.jpg", 5, false);
+    when(this.extractHandler.handle(cmd))
+        .thenReturn(new ExtractResult(100, 200, 3, false, new ColorPalette(List.of())));
+    assertEquals(
+        new OkResponse(new ExtractResult(100, 200, 3, false, new ColorPalette(List.of())), null),
+        this.registry.dispatch(cmd),
+        "Extract command should return an OkResponse with the handler result");
   }
 
   // ── Resize ────────────────────────────────────────────────────
@@ -74,7 +99,7 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchResizeReturnsOkResponse() {
     assertEquals(
-        new OkResponse(null),
+        new OkResponse(null, null),
         this.registry.dispatch(new Resize("/src.jpg", "/dst.jpg", 0.5, false)),
         "Resize command should return OkResponse");
   }
@@ -116,7 +141,7 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchThumbnailReturnsOkResponse() {
     assertEquals(
-        new OkResponse(null),
+        new OkResponse(null, null),
         this.registry.dispatch(new Thumbnail("/src.jpg", "/dst.jpg", 800, false)),
         "Thumbnail command should return OkResponse");
   }
@@ -135,7 +160,7 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchScaleTransformReturnsOkResponse() {
     assertEquals(
-        new OkResponse(null),
+        new OkResponse(null, null),
         this.registry.dispatch(
             new ScaleTransform(
                 "/src.jpg",
@@ -162,7 +187,7 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchScaleTransformBatchReturnsOkResponse() {
     assertEquals(
-        new OkResponse(null),
+        new OkResponse(null, null),
         this.registry.dispatch(new ScaleTransformBatch("/src.jpg", List.of(), false)),
         "ScaleTransformBatch command should return OkResponse");
   }
@@ -193,7 +218,7 @@ class DefaultHandlerRegistryTest {
   @Test
   void testDispatchShutdownReturnsOkResponse() {
     assertEquals(
-        new OkResponse(null),
+        new OkResponse(null, null),
         this.registry.dispatch(new Shutdown()),
         "Shutdown command should return OkResponse without calling any handler");
   }

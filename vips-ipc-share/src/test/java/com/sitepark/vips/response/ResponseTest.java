@@ -24,7 +24,7 @@ class ResponseTest {
     ObjectMapper mapper = new ObjectMapper();
     assertEquals(
         "{\"status\":\"ok\"}",
-        mapper.writeValueAsString(new OkResponse(null)),
+        mapper.writeValueAsString(new OkResponse(null, null)),
         "OkResponse without cliCommand should serialize with only the status discriminator");
   }
 
@@ -33,7 +33,8 @@ class ResponseTest {
     ObjectMapper mapper = new ObjectMapper();
     assertEquals(
         "{\"status\":\"ok\",\"debug\":{\"cliCommand\":\"vips resize /a.jpg /b.jpg 0.5\"}}",
-        mapper.writeValueAsString(new OkResponse(new DebugInfo("vips resize /a.jpg /b.jpg 0.5"))),
+        mapper.writeValueAsString(
+            new OkResponse(null, new DebugInfo("vips resize /a.jpg /b.jpg 0.5"))),
         "OkResponse with DebugInfo should serialize the debug object including cliCommand");
   }
 
@@ -41,7 +42,7 @@ class ResponseTest {
   void testDeserializeOkResponse() throws JsonProcessingException {
     ObjectMapper mapper = new ObjectMapper();
     assertEquals(
-        new OkResponse(null),
+        new OkResponse(null, null),
         mapper.readValue("{\"status\":\"ok\"}", Response.class),
         "OkResponse should deserialize via Response polymorphic type");
   }
@@ -50,7 +51,7 @@ class ResponseTest {
   void testDeserializeOkResponseWithDebugInfo() throws JsonProcessingException {
     ObjectMapper mapper = new ObjectMapper();
     assertEquals(
-        new OkResponse(new DebugInfo("vips resize /a.jpg /b.jpg 0.5")),
+        new OkResponse(null, new DebugInfo("vips resize /a.jpg /b.jpg 0.5")),
         mapper.readValue(
             "{\"status\":\"ok\",\"debug\":{\"cliCommand\":\"vips resize /a.jpg /b.jpg 0.5\"}}",
             Response.class),

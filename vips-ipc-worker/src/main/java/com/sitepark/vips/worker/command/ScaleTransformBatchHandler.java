@@ -5,6 +5,7 @@ import app.photofox.vipsffm.Vips;
 import app.photofox.vipsffm.VipsHelper;
 import app.photofox.vipsffm.VipsOption;
 import app.photofox.vipsffm.enums.VipsSize;
+import com.sitepark.vips.command.Result;
 import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
 import com.sitepark.vips.worker.WorkerConfig;
@@ -19,7 +20,7 @@ public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransform
   }
 
   @Override
-  public void handle(ScaleTransformBatch cmd) {
+  public Result handle(ScaleTransformBatch cmd) {
     Vips.init();
     Vips.run(
         arena -> {
@@ -84,5 +85,6 @@ public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransform
                 target.metadata());
           }
         });
+    return null;
   }
 }

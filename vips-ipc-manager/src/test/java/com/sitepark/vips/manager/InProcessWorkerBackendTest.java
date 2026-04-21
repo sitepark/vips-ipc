@@ -34,14 +34,14 @@ class InProcessWorkerBackendTest {
   @Test
   void testExecuteDelegatesToRegistry() throws IOException {
     Resize cmd = new Resize("/src.jpg", "/dst.jpg", 0.5, false);
-    when(this.registry.dispatch(cmd)).thenReturn(new OkResponse(null));
+    when(this.registry.dispatch(cmd)).thenReturn(new OkResponse(null, null));
     this.backend.execute(cmd);
     verify(this.registry).dispatch(cmd);
   }
 
   @Test
   void testExecuteDoesNotThrowOnOkResponse() {
-    when(this.registry.dispatch(any())).thenReturn(new OkResponse(null));
+    when(this.registry.dispatch(any())).thenReturn(new OkResponse(null, null));
     assertDoesNotThrow(
         () -> this.backend.execute(new Resize("/src.jpg", "/dst.jpg", 0.5, false)),
         "execute() should not throw when worker returns OkResponse");
@@ -86,7 +86,7 @@ class InProcessWorkerBackendTest {
   @Test
   void testExecuteDoesNotThrowWhenDebugInfoIsPresent() {
     when(this.registry.dispatch(any()))
-        .thenReturn(new OkResponse(new DebugInfo("echo '{}' | java -jar worker.jar")));
+        .thenReturn(new OkResponse(null, new DebugInfo("echo '{}' | java -jar worker.jar")));
     assertDoesNotThrow(
         () -> this.backend.execute(new Resize("/src.jpg", "/dst.jpg", 0.5, false)),
         "execute() should not throw when OkResponse includes non-null debug info");
@@ -94,7 +94,7 @@ class InProcessWorkerBackendTest {
 
   @Test
   void testQueryEnvironmentThrowsIoExceptionOnUnexpectedResponseType() {
-    when(this.registry.dispatch(any(GetEnvironment.class))).thenReturn(new OkResponse(null));
+    when(this.registry.dispatch(any(GetEnvironment.class))).thenReturn(new OkResponse(null, null));
     assertThrows(
         IOException.class,
         () -> this.backend.queryEnvironment(),
@@ -109,7 +109,7 @@ class InProcessWorkerBackendTest {
 
   @Test
   void testExecuteStillWorksAfterClose() {
-    when(this.registry.dispatch(any())).thenReturn(new OkResponse(null));
+    when(this.registry.dispatch(any())).thenReturn(new OkResponse(null, null));
     this.backend.close();
     assertDoesNotThrow(
         () -> this.backend.execute(new Resize("/src.jpg", "/dst.jpg", 0.5, false)),

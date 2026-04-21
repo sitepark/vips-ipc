@@ -3,6 +3,7 @@ package com.sitepark.vips.worker;
 import com.sitepark.vips.handler.HandlerRegistry;
 import com.sitepark.vips.handler.HandlerRegistryFactory;
 import com.sitepark.vips.worker.command.ConfigHandler;
+import com.sitepark.vips.worker.command.ExtractHandler;
 import com.sitepark.vips.worker.command.GetEnvironmentHandler;
 import com.sitepark.vips.worker.command.ResizeHandler;
 import com.sitepark.vips.worker.command.ScaleTransformBatchHandler;
@@ -31,6 +32,7 @@ public class HandlerRegistryDefaultFactory implements HandlerRegistryFactory {
     WorkerConfig config = new WorkerConfig();
     return new DefaultHandlerRegistry(
         new ConfigHandler(config),
+        new ExtractHandler(),
         new GetEnvironmentHandler(),
         new ResizeHandler(),
         new ThumbnailHandler(),

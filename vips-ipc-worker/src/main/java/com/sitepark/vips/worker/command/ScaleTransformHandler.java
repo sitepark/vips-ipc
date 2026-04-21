@@ -2,6 +2,7 @@ package com.sitepark.vips.worker.command;
 
 import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
+import com.sitepark.vips.command.Result;
 import com.sitepark.vips.command.ScaleTransform;
 import com.sitepark.vips.worker.WorkerConfig;
 
@@ -14,7 +15,7 @@ public class ScaleTransformHandler implements CommandHandler<ScaleTransform> {
   }
 
   @Override
-  public void handle(ScaleTransform cmd) {
+  public Result handle(ScaleTransform cmd) {
     Vips.init();
     Vips.run(
         arena -> {
@@ -30,5 +31,6 @@ public class ScaleTransformHandler implements CommandHandler<ScaleTransform> {
               config,
               cmd.metadata());
         });
+    return null;
   }
 }

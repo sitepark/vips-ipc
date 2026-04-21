@@ -3,6 +3,7 @@ package com.sitepark.vips.worker.command;
 import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
 import com.sitepark.vips.command.Resize;
+import com.sitepark.vips.command.Result;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -11,7 +12,7 @@ import java.nio.file.Path;
 public class ResizeHandler implements CommandHandler<Resize> {
 
   @Override
-  public void handle(Resize cmd) {
+  public Result handle(Resize cmd) {
     Vips.init();
     Vips.run(
         arena -> {
@@ -27,5 +28,6 @@ public class ResizeHandler implements CommandHandler<Resize> {
           }
           scaled.writeToFile(cmd.target());
         });
+    return null;
   }
 }

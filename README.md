@@ -99,8 +99,37 @@ lifetime of your application — both patterns are supported.
 | `configure(jpegInterlace, strip)` | Sets global encoding parameters; `null` keeps the current value. Defaults: progressive JPEG (`true`), strip metadata (`false`) |
 | `resize(source, target, scale)` | Scales an image by factor (e.g. `0.5` = 50%) |
 | `thumbnail(source, target, width)` | Creates a thumbnail with fixed width; height is proportional |
-| `scaleTransform(source, target, resize, border, crop, background, formats)` | Applies resize → border → crop in sequence; writes one file per requested format using `target` as base path (without extension); steps are optional (`null` to skip) |
+| `extract(source, colorsPaletteBitDepth)` | Extracts image metadata (dimensions, channels, alpha) and optionally a quantized color palette; pass `0` to skip palette extraction |
+| `scaleTransform(source, target, resize, border, crop, background, formats, metadata)` | Applies resize → border → crop in sequence; writes one file per requested format using `target` as base path (without extension); steps are optional (`null` to skip) |
 | `scaleTransformBatch(source, targets)` | Produces multiple outputs from one source image in a single worker call; image is loaded once using shrink-on-load |
+
+### Extracting Image Metadata and Color Palette
+
+`extract()` reads image metadata without writing any output file. It returns an `ExtractResult` with
+the image dimensions, number of channels, and whether the image has an alpha channel. Optionally, it
+quantizes the image into a compact color palette using GIF-based libimagequant quantization:
+
+```java
+ExtractResult result = client.extract(Path.of("/var/images/photo.jpg"), 5);
+
+System.out.println(result.width());    // e.g. 3840
+System.out.println(result.height());   // e.g. 2160
+System.out.println(result.channels()); // e.g. 3 (RGB)
+System.out.println(result.hasAlpha()); // e.g. false
+
+ColorPalette palette = result.colorPalette();
+for (ColorPaletteEntry color : palette.colors()) {
+    System.out.printf("#%02X%02X%02X  %.1f%%%n",
+        color.red(), color.green(), color.blue(), color.percentage());
+}
+```
+
+The `colorsPaletteBitDepth` parameter controls how many palette slots are used during quantization
+(`2^bitDepth` slots). A value of `5` gives 32 colors, which is a good balance between accuracy and
+compactness. Pass `0` to skip palette extraction entirely — only the metadata fields are populated.
+
+The palette colors are sorted by pixel coverage (descending), so `palette.colors().get(0)` is always
+the dominant color of the image.
 
 ### Builder Options
 
@@ -260,6 +289,17 @@ Worker → Manager (stdout):
 {"status":"ok"}
 ```
 
+Commands that return data carry a `result` object in the response. The `result` field itself contains
+a `result` discriminator that identifies the concrete result type:
+
+```
+Manager → Worker (stdin):
+{"command":"extract","source":"/path/input.jpg","colorsPaletteBitDepth":5}
+
+Worker → Manager (stdout):
+{"status":"ok","result":{"result":"extract","width":800,"height":600,"channels":3,"hasAlpha":false,"colorPalette":{...}}}
+```
+
 On error:
 
 ```
@@ -267,8 +307,9 @@ Worker → Manager (stdout):
 {"status":"error","message":"VipsError: ...", "stackTrace":"..."}
 ```
 
-Both `Command` and `Response` use Jackson's `@JsonTypeInfo` polymorphic deserialization. The discriminator field
-`command` selects the concrete command type; the field `status` selects the response type.
+`Command`, `Response`, and `Result` all use Jackson's `@JsonTypeInfo` polymorphic deserialization.
+The discriminator field `command` selects the concrete command type, `status` selects the response
+type, and `result` selects the concrete result type.
 
 ```mermaid
 graph TD
@@ -308,9 +349,23 @@ vips-ipc (parent)
    ```java
    @JsonSubTypes.Type(value = Convert.class, name = "convert")
    ```
-3. Implement `CommandHandler<Convert>` in `vips-ipc-worker`
-4. Register the handler in `DefaultHandlerRegistry`'s dispatch switch and wire it in `HandlerRegistryDefaultFactory`
-5. Expose a public method on `VipsClient` in `vips-ipc-manager`
+3. If the command returns data, add a record implementing `Result` in `vips-ipc-share` and register
+   it in the `@JsonSubTypes` annotation on the `Result` interface:
+   ```java
+   public record ConvertResult(long bytes) implements Result {}
+   ```
+   ```java
+   @JsonSubTypes.Type(value = ConvertResult.class, name = "convert")
+   ```
+   Commands that produce no return value return `null` from their handler — `OkResponse.result()`
+   will be `null` and the `result` field is omitted from the JSON.
+4. Implement `CommandHandler<Convert>` in `vips-ipc-worker`; return the result record (or `null`)
+5. Register the handler in `DefaultHandlerRegistry`'s dispatch switch and wire it in `HandlerRegistryDefaultFactory`
+6. Expose a public method on `VipsClient` in `vips-ipc-manager`; cast the return value if needed:
+   ```java
+   return (ConvertResult) backend.execute(new Convert(source, target, format));
+   ```
+7. Mirror the same method in `VipsClientPool` — delegate via the pool's `execute()` helper
 
 ## Building
 

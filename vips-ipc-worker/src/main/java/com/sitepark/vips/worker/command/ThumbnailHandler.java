@@ -2,6 +2,7 @@ package com.sitepark.vips.worker.command;
 
 import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
+import com.sitepark.vips.command.Result;
 import com.sitepark.vips.command.Thumbnail;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -11,7 +12,7 @@ import java.nio.file.Path;
 public class ThumbnailHandler implements CommandHandler<Thumbnail> {
 
   @Override
-  public void handle(Thumbnail cmd) {
+  public Result handle(Thumbnail cmd) {
     Vips.init();
     Vips.run(
         arena -> {
@@ -27,5 +28,6 @@ public class ThumbnailHandler implements CommandHandler<Thumbnail> {
           }
           thumb.writeToFile(cmd.target());
         });
+    return null;
   }
 }

@@ -1,6 +1,7 @@
 package com.sitepark.vips.worker.command;
 
 import com.sitepark.vips.command.Config;
+import com.sitepark.vips.command.Result;
 import com.sitepark.vips.worker.WorkerConfig;
 
 public class ConfigHandler implements CommandHandler<Config> {
@@ -12,7 +13,8 @@ public class ConfigHandler implements CommandHandler<Config> {
   }
 
   @Override
-  public void handle(Config cmd) {
+  public Result handle(Config cmd) {
     config.apply(cmd);
+    return null;
   }
 }

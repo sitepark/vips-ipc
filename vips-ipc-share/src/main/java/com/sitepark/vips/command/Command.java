@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "command")
 @JsonSubTypes({
   @JsonSubTypes.Type(value = Config.class, name = "config"),
+  @JsonSubTypes.Type(value = Extract.class, name = "extract"),
   @JsonSubTypes.Type(value = Resize.class, name = "resize"),
   @JsonSubTypes.Type(value = Thumbnail.class, name = "thumbnail"),
   @JsonSubTypes.Type(value = ScaleTransform.class, name = "scale-transform"),
@@ -15,12 +16,13 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 })
 public sealed interface Command
     permits Config,
+        Extract,
         GetEnvironment,
         Resize,
-        Thumbnail,
         ScaleTransform,
         ScaleTransformBatch,
-        Shutdown {
+        Shutdown,
+        Thumbnail {
 
   default boolean debug() {
     return false;
