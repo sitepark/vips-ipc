@@ -4,16 +4,19 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-import com.sitepark.vips.command.*;
+import com.sitepark.vips.command.OutputFormat;
+import com.sitepark.vips.command.Resize;
+import com.sitepark.vips.command.ScaleTransform;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.CropStep;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
+import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
+import com.sitepark.vips.command.Thumbnail;
 import com.sitepark.vips.response.VipsEnvironmentResponse;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -28,62 +31,26 @@ class VipsClientPoolTest {
     this.pool = new VipsClientPool(List.of(this.worker));
   }
 
-  // ── resize ────────────────────────────────────────────────────
+  // ── execute(Resize) ───────────────────────────────────────────
 
   @Test
   void testResizeDelegatesToWorker() throws IOException {
-    this.pool.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5);
+    this.pool.execute(Resize.of(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5));
     verify(this.worker).execute(new Resize("/src.jpg", "/dst.jpg", 0.5, false));
   }
 
   @Test
   void testResizeWithDebugDelegatesToWorker() throws IOException {
-    this.pool.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5, true);
+    this.pool.execute(new Resize("/src.jpg", "/dst.jpg", 0.5, true));
     verify(this.worker).execute(new Resize("/src.jpg", "/dst.jpg", 0.5, true));
   }
 
-  // ── thumbnail ─────────────────────────────────────────────────
+  // ── execute(Thumbnail) ────────────────────────────────────────
 
   @Test
   void testThumbnailDelegatesToWorker() throws IOException {
-    this.pool.thumbnail(Path.of("/src.jpg"), Path.of("/dst.jpg"), 800);
+    this.pool.execute(Thumbnail.of(Path.of("/src.jpg"), Path.of("/dst.jpg"), 800));
     verify(this.worker).execute(new Thumbnail("/src.jpg", "/dst.jpg", 800, false));
-  }
-
-  // ── configure ─────────────────────────────────────────────────
-
-  @Test
-  void testConfigureDelegatesToWorker() throws IOException {
-    this.pool.configure(true, false);
-    verify(this.worker).execute(new Config(true, false));
-  }
-
-  // ── configureAll ──────────────────────────────────────────────
-
-  @Test
-  @SuppressWarnings("PMD.CloseResource")
-  void testConfigureAllConfiguresAllWorkers() throws IOException {
-    WorkerBackend worker1 = mock();
-    WorkerBackend worker2 = mock();
-    AtomicInteger callCount = new AtomicInteger(0);
-    doAnswer(
-            inv -> {
-              callCount.incrementAndGet();
-              return null;
-            })
-        .when(worker1)
-        .execute(any());
-    doAnswer(
-            inv -> {
-              callCount.incrementAndGet();
-              return null;
-            })
-        .when(worker2)
-        .execute(any());
-
-    new VipsClientPool(List.of(worker1, worker2)).configureAll(true, false);
-
-    assertEquals(2, callCount.get(), "configureAll() should configure each worker exactly once");
   }
 
   // ── getEnvironment ────────────────────────────────────────────
@@ -96,17 +63,18 @@ class VipsClientPoolTest {
     verify(this.worker).queryEnvironment();
   }
 
-  // ── scaleTransform ────────────────────────────────────────────
+  // ── execute(ScaleTransform) ───────────────────────────────────
 
   @Test
   void testScaleTransformDelegatesToWorker() throws IOException {
     ResizeStep resize = new ResizeStep(200, 100);
     BorderStep border = new BorderStep(5, 5);
     CropStep crop = new CropStep(190, 90, 5, 5);
-    List<OutputFormat> formats = List.of(OutputFormat.of(OutputFormatType.JPG));
+    List<OutputFormat> formats = List.of(OutputFormat.jpeg());
 
-    this.pool.scaleTransform(
-        Path.of("/src.jpg"), Path.of("/dst"), resize, border, crop, "FF0000", formats, null);
+    this.pool.execute(
+        ScaleTransform.of(
+            Path.of("/src.jpg"), Path.of("/dst"), resize, border, crop, "FF0000", formats, null));
 
     verify(this.worker)
         .execute(
@@ -114,7 +82,7 @@ class VipsClientPoolTest {
                 "/src.jpg", "/dst", resize, border, crop, "FF0000", formats, null, false));
   }
 
-  // ── scaleTransformBatch ───────────────────────────────────────
+  // ── execute(ScaleTransformBatch) ──────────────────────────────
 
   @Test
   void testScaleTransformBatchDelegatesToWorker() throws IOException {
@@ -126,10 +94,10 @@ class VipsClientPoolTest {
                 null,
                 null,
                 null,
-                List.of(OutputFormat.of(OutputFormatType.JPG)),
+                List.of(OutputFormat.jpeg()),
                 null));
 
-    this.pool.scaleTransformBatch(Path.of("/src.jpg"), targets);
+    this.pool.execute(ScaleTransformBatch.of(Path.of("/src.jpg"), targets));
 
     verify(this.worker).execute(new ScaleTransformBatch("/src.jpg", targets, false));
   }
@@ -138,9 +106,9 @@ class VipsClientPoolTest {
 
   @Test
   void testWorkerIsReturnedAfterSuccessfulCall() throws IOException {
-    this.pool.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5);
+    this.pool.execute(Resize.of(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5));
     assertDoesNotThrow(
-        () -> this.pool.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5),
+        () -> this.pool.execute(Resize.of(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5)),
         "Worker should be returned to pool after a successful call, allowing the next call");
   }
 
@@ -149,12 +117,12 @@ class VipsClientPoolTest {
   void testWorkerIsReturnedAfterExceptionInWorker() throws IOException {
     doThrow(new IOException("worker error")).doReturn(null).when(this.worker).execute(any());
     try {
-      this.pool.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5);
+      this.pool.execute(Resize.of(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5));
     } catch (Exception ignored) {
       // expected on first call
     }
     assertDoesNotThrow(
-        () -> this.pool.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5),
+        () -> this.pool.execute(Resize.of(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5)),
         "Worker should be returned to pool even after an exception, allowing the next call");
   }
 

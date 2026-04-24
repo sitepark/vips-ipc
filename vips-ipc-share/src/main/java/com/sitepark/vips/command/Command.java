@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "command")
 @JsonSubTypes({
-  @JsonSubTypes.Type(value = Config.class, name = "config"),
+  @JsonSubTypes.Type(value = Compare.class, name = "compare"),
   @JsonSubTypes.Type(value = Extract.class, name = "extract"),
   @JsonSubTypes.Type(value = Resize.class, name = "resize"),
   @JsonSubTypes.Type(value = Thumbnail.class, name = "thumbnail"),
@@ -14,8 +14,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
   @JsonSubTypes.Type(value = GetEnvironment.class, name = "get-environment"),
   @JsonSubTypes.Type(value = Shutdown.class, name = "shutdown")
 })
-public sealed interface Command
-    permits Config,
+public sealed interface Command<R>
+    permits Compare,
         Extract,
         GetEnvironment,
         Resize,

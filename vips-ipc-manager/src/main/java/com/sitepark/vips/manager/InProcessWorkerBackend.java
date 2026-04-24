@@ -2,7 +2,6 @@ package com.sitepark.vips.manager;
 
 import com.sitepark.vips.command.Command;
 import com.sitepark.vips.command.GetEnvironment;
-import com.sitepark.vips.command.Result;
 import com.sitepark.vips.handler.HandlerRegistry;
 import com.sitepark.vips.handler.HandlerRegistryFactory;
 import com.sitepark.vips.response.ErrorResponse;
@@ -25,7 +24,8 @@ class InProcessWorkerBackend implements WorkerBackend {
   }
 
   @Override
-  public Result execute(Command cmd) throws IOException {
+  @SuppressWarnings("unchecked")
+  public <R> R execute(Command<R> cmd) throws IOException {
     lock.lock();
     try {
       return switch (registry.dispatch(cmd)) {
@@ -33,7 +33,7 @@ class InProcessWorkerBackend implements WorkerBackend {
           if (ok.debug() != null) {
             LOG.info("Worker cli-command:\n" + ok.debug().cliCommand());
           }
-          yield ok.result();
+          yield (R) ok.result();
         }
         case ErrorResponse err ->
             throw new IOException("Vips worker error: " + err.message() + "\n" + err.stackTrace());

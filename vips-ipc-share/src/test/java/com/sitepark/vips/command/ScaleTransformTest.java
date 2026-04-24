@@ -53,7 +53,7 @@ class ScaleTransformTest {
             new BorderStep(5, 5),
             new CropStep(190, 90, 5, 5),
             "FF0000",
-            List.of(OutputFormat.of(OutputFormatType.JPG), OutputFormat.of(OutputFormatType.WEBP)),
+            List.of(OutputFormat.jpeg(), OutputFormat.webp()),
             null,
             false);
 
@@ -84,7 +84,7 @@ class ScaleTransformTest {
             null,
             null,
             null,
-            List.of(OutputFormat.of(OutputFormatType.JPG)),
+            List.of(OutputFormat.jpeg()),
             null,
             false);
 
@@ -117,7 +117,7 @@ class ScaleTransformTest {
             null,
             null,
             null,
-            List.of(OutputFormat.of(OutputFormatType.JPG), OutputFormat.of(OutputFormatType.AVIF)),
+            List.of(OutputFormat.jpeg(), OutputFormat.avif()),
             null,
             false);
 

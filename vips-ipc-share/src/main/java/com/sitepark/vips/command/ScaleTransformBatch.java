@@ -2,12 +2,13 @@ package com.sitepark.vips.command;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.file.Path;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
 @SuppressFBWarnings("EI_EXPOSE_REP")
 public record ScaleTransformBatch(String source, List<BatchTarget> targets, boolean debug)
-    implements Command {
+    implements Command<Void> {
 
   public ScaleTransformBatch {
     if (targets != null) {
@@ -33,5 +34,9 @@ public record ScaleTransformBatch(String source, List<BatchTarget> targets, bool
         formats = List.copyOf(formats);
       }
     }
+  }
+
+  public static ScaleTransformBatch of(Path source, List<BatchTarget> targets) {
+    return new ScaleTransformBatch(source.toAbsolutePath().toString(), targets, false);
   }
 }

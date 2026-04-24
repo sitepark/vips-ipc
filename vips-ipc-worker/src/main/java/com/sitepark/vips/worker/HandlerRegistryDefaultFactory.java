@@ -2,7 +2,7 @@ package com.sitepark.vips.worker;
 
 import com.sitepark.vips.handler.HandlerRegistry;
 import com.sitepark.vips.handler.HandlerRegistryFactory;
-import com.sitepark.vips.worker.command.ConfigHandler;
+import com.sitepark.vips.worker.command.CompareHandler;
 import com.sitepark.vips.worker.command.ExtractHandler;
 import com.sitepark.vips.worker.command.GetEnvironmentHandler;
 import com.sitepark.vips.worker.command.ResizeHandler;
@@ -10,10 +10,7 @@ import com.sitepark.vips.worker.command.ScaleTransformBatchHandler;
 import com.sitepark.vips.worker.command.ScaleTransformHandler;
 import com.sitepark.vips.worker.command.ThumbnailHandler;
 
-/**
- * Default {@link HandlerRegistryFactory} that wires up all production handlers with a shared
- * {@link WorkerConfig}.
- */
+/** Default {@link HandlerRegistryFactory} that wires up all production handlers. */
 public class HandlerRegistryDefaultFactory implements HandlerRegistryFactory {
 
   private final String workerJarCommand;
@@ -29,15 +26,14 @@ public class HandlerRegistryDefaultFactory implements HandlerRegistryFactory {
 
   @Override
   public HandlerRegistry create() {
-    WorkerConfig config = new WorkerConfig();
     return new DefaultHandlerRegistry(
-        new ConfigHandler(config),
+        new CompareHandler(),
         new ExtractHandler(),
         new GetEnvironmentHandler(),
         new ResizeHandler(),
         new ThumbnailHandler(),
-        new ScaleTransformHandler(config),
-        new ScaleTransformBatchHandler(config),
+        new ScaleTransformHandler(),
+        new ScaleTransformBatchHandler(),
         workerJarCommand);
   }
 }

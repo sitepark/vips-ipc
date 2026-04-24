@@ -5,12 +5,12 @@ import app.photofox.vipsffm.VipsHelper;
 import app.photofox.vipsffm.VipsOption;
 import app.photofox.vipsffm.enums.VipsBlendMode;
 import app.photofox.vipsffm.enums.VipsExtend;
+import app.photofox.vipsffm.enums.VipsForeignHeifCompression;
 import com.sitepark.vips.command.Metadata;
 import com.sitepark.vips.command.OutputFormat;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.CropStep;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
-import com.sitepark.vips.worker.WorkerConfig;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -18,16 +18,17 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Shared image transformation logic used by scale-transform handlers.
- */
+/** Shared image transformation logic used by scale-transform handlers. */
 final class ScaleTransformSupport {
+
+  private static final String STRIP = "strip";
 
   private ScaleTransformSupport() {}
 
   /**
    * Applies resize → border → crop in sequence and writes one output file per requested format.
-   * {@code targetBase} is the file path without extension; the format's extension is appended.
+   * {@code targetBase} is the base file path; the format's extension is appended unless {@link
+   * OutputFormat#appendExtension()} returns {@code false}.
    */
   static void applyAndWrite(
       VImage base,
@@ -37,7 +38,6 @@ final class ScaleTransformSupport {
       String background,
       String targetBase,
       List<OutputFormat> formats,
-      WorkerConfig config,
       Metadata metadata) {
 
     if (formats == null) {
@@ -55,7 +55,7 @@ final class ScaleTransformSupport {
     image = resize(image, resize);
     image = border(image, border);
     image = crop(image, crop);
-    write(image, targetBase, formats, config, backgroundRgba, metadata);
+    write(image, targetBase, formats, backgroundRgba, metadata);
   }
 
   private static VImage resize(VImage image, ResizeStep resize) {
@@ -117,7 +117,7 @@ final class ScaleTransformSupport {
    *
    * @param requested the desired crop width or height
    * @param imageSize the actual image width or height after all previous operations
-   * @param offset    the crop offset (left or top) in the same axis; may be negative
+   * @param offset the crop offset (left or top) in the same axis; may be negative
    * @return the effective dimension to pass to {@code extractArea}, clamped to available space
    */
   static int clampCropDimension(int requested, int imageSize, int offset) {
@@ -129,51 +129,53 @@ final class ScaleTransformSupport {
       VImage image,
       String targetBase,
       List<OutputFormat> formats,
-      WorkerConfig config,
       List<Double> backgroundRgba,
       Metadata metadata) {
     for (OutputFormat format : formats) {
-      write(image, targetBase, format, config, backgroundRgba, metadata);
+      write(image, targetBase, format, backgroundRgba, metadata);
     }
   }
 
-  private static void write(
-      VImage image,
-      String targetBase,
-      OutputFormat format,
-      WorkerConfig config,
-      List<Double> backgroundRgba,
-      Metadata metadata) {
-
-    String path = targetBase + "." + format.extension();
+  private static String preparePath(String targetBase, OutputFormat format) {
+    String path = format.appendExtension() ? targetBase + "." + format.extension() : targetBase;
     try {
-      Path parent = Path.of(targetBase).getParent();
+      Path parent = Path.of(path).getParent();
       if (parent != null) {
         Files.createDirectories(parent);
       }
     } catch (IOException e) {
       throw new UncheckedIOException(e);
     }
+    return path;
+  }
 
+  private static void write(
+      VImage image,
+      String targetBase,
+      OutputFormat format,
+      List<Double> backgroundRgba,
+      Metadata metadata) {
+
+    String path = preparePath(targetBase, format);
     List<Double> backgroundRgb = backgroundRgba.subList(0, 3);
-
-    switch (format.type()) {
-      case JPG ->
+    switch (format) {
+      case OutputFormat.JpegFormat jpg ->
           IptcBuilder.applyToImage(
                   image.flatten(VipsOption.ArrayDouble("background", backgroundRgb)), metadata)
-              .writeToFile(
+              .jpegsave(
                   path,
-                  VipsOption.Int("Q", format.effectiveQuality()),
-                  VipsOption.Boolean("interlace", config.jpegInterlace()),
-                  VipsOption.Boolean("strip", config.strip()));
-      case WEBP ->
+                  VipsOption.Int("Q", jpg.quality()),
+                  VipsOption.Boolean("interlace", jpg.interlace()),
+                  VipsOption.Boolean(STRIP, jpg.strip()));
+      case OutputFormat.WebpFormat webp ->
           IptcBuilder.applyToImage(
                   image.flatten(VipsOption.ArrayDouble("background", backgroundRgb)), metadata)
-              .writeToFile(
+              .webpsave(
                   path,
-                  VipsOption.Int("Q", format.effectiveQuality()),
-                  VipsOption.Boolean("strip", config.strip()));
-      default ->
+                  VipsOption.Int("Q", webp.quality()),
+                  VipsOption.Boolean("lossless", webp.lossless()),
+                  VipsOption.Boolean(STRIP, webp.strip()));
+      case OutputFormat.PngFormat png ->
           // Composite the source (with its alpha) over a constant background image. This gives:
           // - transparent/border pixels → (bg_rgb, bg_alpha)
           // - opaque source pixels     → (src_rgb, 255)
@@ -184,7 +186,27 @@ final class ScaleTransformSupport {
                       .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                       .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
                   metadata)
-              .writeToFile(path, VipsOption.Boolean("strip", config.strip()));
+              .pngsave(path, VipsOption.Boolean(STRIP, png.strip()));
+      case OutputFormat.GifFormat gif ->
+          IptcBuilder.applyToImage(
+                  image
+                      .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
+                      .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
+                  metadata)
+              .gifsave(path, VipsOption.Boolean(STRIP, gif.strip()));
+      case OutputFormat.AvifFormat avif ->
+          IptcBuilder.applyToImage(
+                  image
+                      .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
+                      .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
+                  metadata)
+              .heifsave(
+                  path,
+                  VipsOption.Enum(
+                      "compression", VipsForeignHeifCompression.FOREIGN_HEIF_COMPRESSION_AV1),
+                  VipsOption.Int("Q", avif.quality()),
+                  VipsOption.Boolean("lossless", avif.lossless()),
+                  VipsOption.Boolean(STRIP, avif.strip()));
     }
   }
 

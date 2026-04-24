@@ -3,11 +3,15 @@ package com.sitepark.vips.manager;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
-import com.sitepark.vips.command.*;
+import com.sitepark.vips.command.OutputFormat;
+import com.sitepark.vips.command.Resize;
+import com.sitepark.vips.command.ScaleTransform;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.CropStep;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
+import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
+import com.sitepark.vips.command.Thumbnail;
 import com.sitepark.vips.response.VipsEnvironmentResponse;
 import java.io.IOException;
 import java.nio.file.Path;
@@ -26,11 +30,11 @@ class VipsClientTest {
     this.client = new VipsClient(this.workerProcess);
   }
 
-  // ── resize ────────────────────────────────────────────────────
+  // ── execute(Resize) ───────────────────────────────────────────
 
   @Test
   void testResizeDelegatesToWorkerProcess() throws IOException {
-    this.client.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5);
+    this.client.execute(Resize.of(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5));
     verify(this.workerProcess).execute(new Resize("/src.jpg", "/dst.jpg", 0.5, false));
   }
 
@@ -41,24 +45,16 @@ class VipsClientTest {
         .execute(new Resize("/src.jpg", "/dst.jpg", 0.5, false));
     assertThrows(
         IOException.class,
-        () -> this.client.resize(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5),
-        "resize() should propagate IOException from WorkerProcess");
+        () -> this.client.execute(Resize.of(Path.of("/src.jpg"), Path.of("/dst.jpg"), 0.5)),
+        "execute(Resize) should propagate IOException from WorkerProcess");
   }
 
-  // ── thumbnail ─────────────────────────────────────────────────
+  // ── execute(Thumbnail) ────────────────────────────────────────
 
   @Test
   void testThumbnailDelegatesToWorkerProcess() throws IOException {
-    this.client.thumbnail(Path.of("/src.jpg"), Path.of("/dst.jpg"), 800);
+    this.client.execute(Thumbnail.of(Path.of("/src.jpg"), Path.of("/dst.jpg"), 800));
     verify(this.workerProcess).execute(new Thumbnail("/src.jpg", "/dst.jpg", 800, false));
-  }
-
-  // ── configure ─────────────────────────────────────────────────
-
-  @Test
-  void testConfigureDelegatesToWorkerProcess() throws IOException {
-    this.client.configure(true, false);
-    verify(this.workerProcess).execute(new Config(true, false));
   }
 
   // ── getEnvironment ────────────────────────────────────────────
@@ -81,20 +77,18 @@ class VipsClientTest {
         "getEnvironment() should propagate IOException from WorkerProcess");
   }
 
-  // ── scaleTransform ────────────────────────────────────────────
+  // ── execute(ScaleTransform) ───────────────────────────────────
 
   @Test
   void testScaleTransformDelegatesToWorkerProcess() throws IOException {
     ResizeStep resize = new ResizeStep(200, 100);
     BorderStep border = new BorderStep(5, 5);
     CropStep crop = new CropStep(190, 90, 5, 5);
-    List<com.sitepark.vips.command.OutputFormat> formats =
-        List.of(
-            com.sitepark.vips.command.OutputFormat.of(
-                com.sitepark.vips.command.OutputFormatType.JPG));
+    List<OutputFormat> formats = List.of(OutputFormat.jpeg());
 
-    this.client.scaleTransform(
-        Path.of("/src.jpg"), Path.of("/dst"), resize, border, crop, "FF0000", formats, null);
+    this.client.execute(
+        ScaleTransform.of(
+            Path.of("/src.jpg"), Path.of("/dst"), resize, border, crop, "FF0000", formats, null));
 
     verify(this.workerProcess)
         .execute(
@@ -102,7 +96,7 @@ class VipsClientTest {
                 "/src.jpg", "/dst", resize, border, crop, "FF0000", formats, null, false));
   }
 
-  // ── scaleTransformBatch ───────────────────────────────────────
+  // ── execute(ScaleTransformBatch) ──────────────────────────────
 
   @Test
   void testScaleTransformBatchDelegatesToWorkerProcess() throws IOException {
@@ -114,12 +108,10 @@ class VipsClientTest {
                 null,
                 null,
                 null,
-                List.of(
-                    com.sitepark.vips.command.OutputFormat.of(
-                        com.sitepark.vips.command.OutputFormatType.JPG)),
+                List.of(OutputFormat.jpeg()),
                 null));
 
-    this.client.scaleTransformBatch(Path.of("/src.jpg"), targets);
+    this.client.execute(ScaleTransformBatch.of(Path.of("/src.jpg"), targets));
 
     verify(this.workerProcess).execute(new ScaleTransformBatch("/src.jpg", targets, false));
   }

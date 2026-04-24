@@ -307,9 +307,11 @@ Worker → Manager (stdout):
 {"status":"error","message":"VipsError: ...", "stackTrace":"..."}
 ```
 
-`Command`, `Response`, and `Result` all use Jackson's `@JsonTypeInfo` polymorphic deserialization.
+`Command<R>`, `Response`, and `Result` all use Jackson's `@JsonTypeInfo` polymorphic deserialization.
 The discriminator field `command` selects the concrete command type, `status` selects the response
-type, and `result` selects the concrete result type.
+type, and `result` selects the concrete result type. The generic type parameter `R` on `Command<R>`
+is a compile-time-only annotation that lets `VipsClient.execute()` return the correct type without a
+cast — it has no effect on JSON serialization.
 
 ```mermaid
 graph TD
@@ -341,9 +343,15 @@ vips-ipc (parent)
 
 ## Adding a New Command
 
-1. Add a record implementing `Command` in `vips-ipc-share`:
+1. Add a record implementing `Command<R>` in `vips-ipc-share`, where `R` is the result type.
+   For commands without a return value use `Void`; for commands that return data declare the result
+   type directly:
    ```java
-   public record Convert(String source, String target, String format) implements Command {}
+   // command without return value
+   public record Convert(String source, String target, String format) implements Command<Void> {}
+
+   // command with return value
+   public record Convert(String source, String target, String format) implements Command<ConvertResult> {}
    ```
 2. Register it in the `@JsonSubTypes` annotation on the `Command` interface:
    ```java
@@ -361,9 +369,10 @@ vips-ipc (parent)
    will be `null` and the `result` field is omitted from the JSON.
 4. Implement `CommandHandler<Convert>` in `vips-ipc-worker`; return the result record (or `null`)
 5. Register the handler in `DefaultHandlerRegistry`'s dispatch switch and wire it in `HandlerRegistryDefaultFactory`
-6. Expose a public method on `VipsClient` in `vips-ipc-manager`; cast the return value if needed:
+6. Expose a public method on `VipsClient` in `vips-ipc-manager`; the return type is inferred from
+   the command's type parameter — no cast needed:
    ```java
-   return (ConvertResult) backend.execute(new Convert(source, target, format));
+   return backend.execute(new Convert(source, target, format));
    ```
 7. Mirror the same method in `VipsClientPool` — delegate via the pool's `execute()` helper
 

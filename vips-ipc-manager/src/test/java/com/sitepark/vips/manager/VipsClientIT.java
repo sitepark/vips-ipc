@@ -3,8 +3,9 @@ package com.sitepark.vips.manager;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sitepark.vips.command.OutputFormat;
-import com.sitepark.vips.command.OutputFormatType;
+import com.sitepark.vips.command.Resize;
 import com.sitepark.vips.command.ScaleTransform;
+import com.sitepark.vips.command.Thumbnail;
 import com.sitepark.vips.response.VipsEnvironmentResponse;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -77,7 +78,7 @@ class VipsClientIT {
   @Test
   void testResizeProducesOutputFile() throws IOException {
     Path target = tempDir.resolve("resized.jpg");
-    client.resize(SOURCE, target, 0.5);
+    client.execute(Resize.of(SOURCE, target, 0.5));
     assertThat(Files.size(target))
         .as("resize() should produce a non-empty output file")
         .isGreaterThan(0L);
@@ -88,7 +89,7 @@ class VipsClientIT {
   @Test
   void testThumbnailProducesOutputFile() throws IOException {
     Path target = tempDir.resolve("thumbnail.jpg");
-    client.thumbnail(SOURCE, target, 100);
+    client.execute(Thumbnail.of(SOURCE, target, 100));
     assertThat(Files.size(target))
         .as("thumbnail() should produce a non-empty output file")
         .isGreaterThan(0L);
@@ -99,15 +100,16 @@ class VipsClientIT {
   @Test
   void testScaleTransformProducesJpgOutputFile() throws IOException {
     Path targetBase = tempDir.resolve("scaled");
-    client.scaleTransform(
-        SOURCE,
-        targetBase,
-        new ScaleTransform.ResizeStep(200, 150),
-        null,
-        null,
-        null,
-        List.of(OutputFormat.of(OutputFormatType.JPG)),
-        null);
+    client.execute(
+        ScaleTransform.of(
+            SOURCE,
+            targetBase,
+            new ScaleTransform.ResizeStep(200, 150),
+            null,
+            null,
+            null,
+            List.of(OutputFormat.jpeg()),
+            null));
     assertThat(Files.size(tempDir.resolve("scaled.jpg")))
         .as("scaleTransform() should produce a non-empty JPG output file")
         .isGreaterThan(0L);
@@ -116,15 +118,16 @@ class VipsClientIT {
   @Test
   void testScaleTransformProducesWebpOutputFile() throws IOException {
     Path targetBase = tempDir.resolve("scaled_webp");
-    client.scaleTransform(
-        SOURCE,
-        targetBase,
-        new ScaleTransform.ResizeStep(200, 150),
-        null,
-        null,
-        null,
-        List.of(OutputFormat.of(OutputFormatType.WEBP)),
-        null);
+    client.execute(
+        ScaleTransform.of(
+            SOURCE,
+            targetBase,
+            new ScaleTransform.ResizeStep(200, 150),
+            null,
+            null,
+            null,
+            List.of(OutputFormat.webp()),
+            null));
     assertThat(Files.size(tempDir.resolve("scaled_webp.webp")))
         .as("scaleTransform() should produce a non-empty WebP output file")
         .isGreaterThan(0L);

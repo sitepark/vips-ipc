@@ -4,7 +4,7 @@ import com.sitepark.vips.command.Command;
 import com.sitepark.vips.command.Result;
 
 @FunctionalInterface
-public interface CommandHandler<T extends Command> {
+public interface CommandHandler<T extends Command<?>> {
 
   Result handle(T command);
 }

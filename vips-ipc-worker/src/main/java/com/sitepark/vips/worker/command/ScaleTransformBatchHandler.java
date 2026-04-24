@@ -8,16 +8,9 @@ import app.photofox.vipsffm.enums.VipsSize;
 import com.sitepark.vips.command.Result;
 import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
-import com.sitepark.vips.worker.WorkerConfig;
 import java.lang.foreign.MemorySegment;
 
 public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransformBatch> {
-
-  private final WorkerConfig config;
-
-  public ScaleTransformBatchHandler(WorkerConfig config) {
-    this.config = config;
-  }
 
   @Override
   public Result handle(ScaleTransformBatch cmd) {
@@ -81,7 +74,6 @@ public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransform
                 target.background(),
                 target.target(),
                 target.formats(),
-                config,
                 target.metadata());
           }
         });

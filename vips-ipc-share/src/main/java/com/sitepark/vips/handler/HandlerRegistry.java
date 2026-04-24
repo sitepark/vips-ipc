@@ -13,5 +13,5 @@ public interface HandlerRegistry {
    * <p>Implementations must never throw; any handler error must be returned as an {@link
    * com.sitepark.vips.response.ErrorResponse}.
    */
-  Response dispatch(Command command);
+  Response dispatch(Command<?> command);
 }

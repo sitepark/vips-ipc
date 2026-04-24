@@ -1,3 +1,3 @@
 package com.sitepark.vips.command;
 
-public record Shutdown() implements Command {}
+public record Shutdown() implements Command<Void> {}

@@ -2,6 +2,7 @@ package com.sitepark.vips.command;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.file.Path;
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_DEFAULT)
@@ -16,7 +17,7 @@ public record ScaleTransform(
     List<OutputFormat> formats,
     Metadata metadata,
     boolean debug)
-    implements Command {
+    implements Command<Void> {
 
   public ScaleTransform {
     if (formats != null) {
@@ -32,4 +33,25 @@ public record ScaleTransform(
 
   /** Crop a region at the given offset. */
   public record CropStep(int width, int height, int offsetX, int offsetY) {}
+
+  public static ScaleTransform of(
+      Path source,
+      Path target,
+      ResizeStep resize,
+      BorderStep border,
+      CropStep crop,
+      String background,
+      List<OutputFormat> formats,
+      Metadata metadata) {
+    return new ScaleTransform(
+        source.toAbsolutePath().toString(),
+        target.toAbsolutePath().toString(),
+        resize,
+        border,
+        crop,
+        background,
+        formats,
+        metadata,
+        false);
+  }
 }

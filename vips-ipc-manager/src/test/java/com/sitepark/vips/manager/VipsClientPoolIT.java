@@ -2,6 +2,7 @@ package com.sitepark.vips.manager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sitepark.vips.command.Resize;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -58,7 +59,7 @@ class VipsClientPoolIT {
   @Test
   void testResizeProducesOutputFile() throws IOException {
     Path target = tempDir.resolve("pool_resized.jpg");
-    pool.resize(SOURCE, target, 0.5);
+    pool.execute(Resize.of(SOURCE, target, 0.5));
     assertThat(Files.size(target))
         .as("resize() should produce a non-empty output file")
         .isGreaterThan(0L);
@@ -75,7 +76,7 @@ class VipsClientPoolIT {
         .forEach(
             target -> {
               try {
-                pool.resize(SOURCE, target, 0.5);
+                pool.execute(Resize.of(SOURCE, target, 0.5));
               } catch (IOException e) {
                 throw new UncheckedIOException(e);
               }

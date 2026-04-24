@@ -12,7 +12,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 
 /** Runs the JSON command loop: reads commands from {@code in}, writes responses to {@code out}. */
-@SuppressWarnings("PMD.AssignmentInOperand")
+@SuppressWarnings({"PMD.AssignmentInOperand", "unchecked"})
 public class Worker {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -33,7 +33,7 @@ public class Worker {
     try (var reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
       String line;
       while ((line = reader.readLine()) != null) {
-        Command cmd = MAPPER.readValue(line, Command.class);
+        Command<?> cmd = MAPPER.readValue(line, Command.class);
         out.println(MAPPER.writeValueAsString(registry.dispatch(cmd)));
         out.flush();
         if (cmd instanceof Shutdown) {

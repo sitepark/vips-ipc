@@ -15,4 +15,11 @@
 		<Class name="~.*\.*Test"/>
 		<Bug pattern="RV_EXCEPTION_NOT_THROWN"/>
 	</Match>
+
+	<!-- Jackson @JsonInclude valueFilter pattern: equals() intentionally compares against the field
+	     value type (Integer, Boolean), not against the filter class itself. -->
+	<Match>
+		<Class name="~com\.sitepark\.vips\.command\.OutputFormat\$.*Filter"/>
+		<Bug pattern="EQ_CHECK_FOR_OPERAND_NOT_COMPATIBLE_WITH_THIS,EQ_UNUSUAL"/>
+	</Match>
 </FindBugsFilter>

@@ -6,13 +6,11 @@ import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
 import com.sitepark.vips.command.Metadata;
 import com.sitepark.vips.command.OutputFormat;
-import com.sitepark.vips.command.OutputFormatType;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
 import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
 import com.sitepark.vips.worker.RequiresVips;
-import com.sitepark.vips.worker.WorkerConfig;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -33,16 +31,16 @@ class ScaleTransformBatchHandlerTest {
   /**
    * Demonstrates the hscale/vscale rounding bug in ScaleTransformBatchHandler.
    *
-   * <p>The portrait source image (402×600) is loaded once via {@code thumbnail()} with
-   * SIZE_FORCE at maxWidth=300, maxHeight=200 (determined by the largest target). The second
-   * target (150×120) then computes:
+   * <p>The portrait source image (402×600) is loaded once via {@code thumbnail()} with SIZE_FORCE
+   * at maxWidth=300, maxHeight=200 (determined by the largest target). The second target (150×120)
+   * then computes:
    *
    * <pre>
    *   hscale = 150 / 300 = 0.5
    *   vscale = 120 / 200 = 0.6   ← differs from hscale!
    * </pre>
-   * <p>
-   * libvips's {@code resize()} with a sequentially-loaded image rejects differing scale factors
+   *
+   * <p>libvips's {@code resize()} with a sequentially-loaded image rejects differing scale factors
    * and throws an error, causing this test to fail.
    */
   @Test
@@ -61,7 +59,7 @@ class ScaleTransformBatchHandlerTest {
                     null,
                     null,
                     null,
-                    List.of(OutputFormat.of(OutputFormatType.JPG)),
+                    List.of(OutputFormat.jpeg()),
                     null),
                 new BatchTarget(
                     target2,
@@ -69,19 +67,19 @@ class ScaleTransformBatchHandlerTest {
                     null,
                     null,
                     null,
-                    List.of(OutputFormat.of(OutputFormatType.JPG)),
+                    List.of(OutputFormat.jpeg()),
                     null)),
             false);
 
     assertDoesNotThrow(
-        () -> new ScaleTransformBatchHandler(new WorkerConfig()).handle(cmd),
+        () -> new ScaleTransformBatchHandler().handle(cmd),
         "Batch resize with mixed aspect ratio targets should not throw");
   }
 
   /**
-   * Visual inspection test: produces a JPEG with a 30 px semi-transparent blue border
-   * (background "0000FF80", alpha = 128). The border is composited against black before writing
-   * so the result should show a dark-blue frame around the source image.
+   * Visual inspection test: produces a JPEG with a 30 px semi-transparent blue border (background
+   * "0000FF80", alpha = 128). The border is composited against black before writing so the result
+   * should show a dark-blue frame around the source image.
    *
    * <p>Output: {@code vips-ipc-worker/target/test-output/border_0000FF80.jpg}
    */
@@ -103,8 +101,7 @@ class ScaleTransformBatchHandlerTest {
               null,
               "0000FF80",
               targetBase,
-              List.of(OutputFormat.of(OutputFormatType.JPG)),
-              new WorkerConfig(),
+              List.of(OutputFormat.jpeg()),
               null);
         });
 
@@ -129,8 +126,7 @@ class ScaleTransformBatchHandlerTest {
               null,
               "0000FF80",
               targetBase,
-              List.of(OutputFormat.of(OutputFormatType.PNG)),
-              new WorkerConfig(),
+              List.of(OutputFormat.png()),
               null);
         });
 
@@ -159,8 +155,7 @@ class ScaleTransformBatchHandlerTest {
               null,
               "0000FF80",
               targetBase,
-              List.of(OutputFormat.of(OutputFormatType.PNG)),
-              new WorkerConfig(),
+              List.of(OutputFormat.png()),
               null);
         });
 
@@ -187,8 +182,7 @@ class ScaleTransformBatchHandlerTest {
               null,
               null,
               targetBase,
-              List.of(OutputFormat.of(OutputFormatType.JPG)),
-              new WorkerConfig(),
+              List.of(OutputFormat.jpeg()),
               metadata);
         });
 
@@ -216,8 +210,7 @@ class ScaleTransformBatchHandlerTest {
               null,
               null,
               targetBase,
-              List.of(OutputFormat.of(OutputFormatType.JPG)),
-              new WorkerConfig(),
+              List.of(OutputFormat.jpeg()),
               metadata);
         });
 

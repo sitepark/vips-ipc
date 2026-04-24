@@ -18,7 +18,7 @@ class DefaultHandlerRegistryTest {
 
   private static final String TEST_WORKER_JAR_CMD = "java -jar worker.jar";
 
-  private ConfigHandler configHandler;
+  private CompareHandler compareHandler;
   private ExtractHandler extractHandler;
   private GetEnvironmentHandler getEnvironmentHandler;
   private ResizeHandler resizeHandler;
@@ -29,7 +29,7 @@ class DefaultHandlerRegistryTest {
 
   @BeforeEach
   void setUp() {
-    this.configHandler = mock();
+    this.compareHandler = mock();
     this.extractHandler = mock();
     this.getEnvironmentHandler = mock();
     this.resizeHandler = mock();
@@ -38,7 +38,7 @@ class DefaultHandlerRegistryTest {
     this.scaleTransformBatchHandler = mock();
     this.registry =
         new DefaultHandlerRegistry(
-            this.configHandler,
+            this.compareHandler,
             this.extractHandler,
             this.getEnvironmentHandler,
             this.resizeHandler,
@@ -48,21 +48,25 @@ class DefaultHandlerRegistryTest {
             TEST_WORKER_JAR_CMD);
   }
 
-  // ── Config ────────────────────────────────────────────────────
+  // ── Compare ───────────────────────────────────────────────────
 
   @Test
-  void testDispatchConfigDelegatesToConfigHandler() {
-    Config cmd = new Config(true, false);
+  void testDispatchCompareDelegatesToCompareHandler() {
+    Compare cmd = new Compare("/a.jpg", "/b.jpg", null, null, false);
+    when(this.compareHandler.handle(cmd)).thenReturn(new CompareResult(List.of(), 0.0, 0.0, null));
     this.registry.dispatch(cmd);
-    verify(this.configHandler).handle(cmd);
+    verify(this.compareHandler).handle(cmd);
   }
 
   @Test
-  void testDispatchConfigReturnsOkResponse() {
+  void testDispatchCompareReturnsCompareResult() {
+    Compare cmd = new Compare("/a.jpg", "/b.jpg", null, null, false);
+    CompareResult expected = new CompareResult(List.of(), 0.0, 0.0, null);
+    when(this.compareHandler.handle(cmd)).thenReturn(expected);
     assertEquals(
-        new OkResponse(null, null),
-        this.registry.dispatch(new Config(true, false)),
-        "Config command should return OkResponse");
+        new OkResponse(expected, null),
+        this.registry.dispatch(cmd),
+        "Compare command should return an OkResponse with the handler result");
   }
 
   // ── Extract ───────────────────────────────────────────────────

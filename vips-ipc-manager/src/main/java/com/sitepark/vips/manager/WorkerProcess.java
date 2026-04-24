@@ -3,7 +3,6 @@ package com.sitepark.vips.manager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sitepark.vips.command.Command;
 import com.sitepark.vips.command.GetEnvironment;
-import com.sitepark.vips.command.Result;
 import com.sitepark.vips.command.Shutdown;
 import com.sitepark.vips.response.ErrorResponse;
 import com.sitepark.vips.response.OkResponse;
@@ -65,7 +64,8 @@ class WorkerProcess implements WorkerBackend {
   // ── Public API ─────────────────────────────────────────────
 
   @Override
-  public Result execute(Command cmd) throws IOException {
+  @SuppressWarnings("unchecked")
+  public <R> R execute(Command<R> cmd) throws IOException {
     lock.lock();
     try {
       switch (sendCommand(cmd, true)) {
@@ -73,7 +73,7 @@ class WorkerProcess implements WorkerBackend {
           if (ok.debug() != null) {
             LOG.info("Worker cli-command:\n" + ok.debug().cliCommand());
           }
-          return ok.result();
+          return (R) ok.result();
         }
         case ErrorResponse err ->
             throw new IOException("Vips worker error: " + err.message() + "\n" + err.stackTrace());
@@ -101,7 +101,7 @@ class WorkerProcess implements WorkerBackend {
 
   // ── Worker Communication ───────────────────────────────────
 
-  private Response sendCommand(Command cmd, boolean canRetry) throws IOException {
+  private Response sendCommand(Command<?> cmd, boolean canRetry) throws IOException {
     ensureRunning();
 
     try {
