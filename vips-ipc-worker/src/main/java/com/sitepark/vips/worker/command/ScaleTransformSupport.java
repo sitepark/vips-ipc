@@ -23,6 +23,7 @@ final class ScaleTransformSupport {
 
   private static final String STRIP = "strip";
   private static final String BACKGROUND = "background";
+  private static final String FORMAT = "format";
 
   private ScaleTransformSupport() {}
 
@@ -179,16 +180,18 @@ final class ScaleTransformSupport {
       case OutputFormat.JpegFormat jpg ->
           IptcBuilder.applyToImage(
                   image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
-              .jpegsave(
+              .writeToFile(
                   path,
+                  VipsOption.String(FORMAT, format.extension()),
                   VipsOption.Int("Q", jpg.quality()),
                   VipsOption.Boolean("interlace", jpg.interlace()),
                   VipsOption.Boolean(STRIP, jpg.strip()));
       case OutputFormat.WebpFormat webp ->
           IptcBuilder.applyToImage(
                   image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
-              .webpsave(
+              .writeToFile(
                   path,
+                  VipsOption.String(FORMAT, format.extension()),
                   VipsOption.Int("Q", webp.quality()),
                   VipsOption.Boolean("lossless", webp.lossless()),
                   VipsOption.Boolean(STRIP, webp.strip()));
@@ -203,22 +206,30 @@ final class ScaleTransformSupport {
                       .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                       .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
                   metadata)
-              .pngsave(path, VipsOption.Boolean(STRIP, png.strip()));
-      case OutputFormat.GifFormat gif ->
-          IptcBuilder.applyToImage(
-                  image
-                      .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
-                      .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
-                  metadata)
-              .gifsave(path, VipsOption.Boolean(STRIP, gif.strip()));
+              .writeToFile(
+                  path,
+                  VipsOption.String(FORMAT, format.extension()),
+                  VipsOption.Boolean(STRIP, png.strip()));
+      case OutputFormat.GifFormat gif -> {
+        IptcBuilder.applyToImage(
+                image
+                    .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
+                    .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
+                metadata)
+            .writeToFile(
+                path,
+                VipsOption.String(FORMAT, format.extension()),
+                VipsOption.Boolean(STRIP, gif.strip()));
+      }
       case OutputFormat.AvifFormat avif ->
           IptcBuilder.applyToImage(
                   image
                       .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                       .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
                   metadata)
-              .heifsave(
+              .writeToFile(
                   path,
+                  VipsOption.String(FORMAT, format.extension()),
                   VipsOption.Enum(
                       "compression", VipsForeignHeifCompression.FOREIGN_HEIF_COMPRESSION_AV1),
                   VipsOption.Int("Q", avif.quality()),

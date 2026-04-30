@@ -68,8 +68,12 @@ public class ExtractHandler implements CommandHandler<Extract> {
     VImage flatImg = colorImg.hasAlpha() ? colorImg.flatten() : colorImg;
 
     // quantize via GIF round-trip: libimagequant picks the best palette
-    VBlob gifData = flatImg.gifsaveBuffer(VipsOption.Int("bitdepth", bitDepth));
-    VImage loaded = VImage.gifloadBuffer(arena, gifData);
+    // VBlob gifData = flatImg.gifsaveBuffer(VipsOption.Int("bitdepth", bitDepth));
+    VBlob gifData =
+        flatImg.magicksaveBuffer(
+            VipsOption.Int("bitdepth", bitDepth), VipsOption.String("format", "gif"));
+    // VImage loaded = VImage.gifloadBuffer(arena, gifData);
+    VImage loaded = VImage.magickloadBuffer(arena, gifData);
     // GIF load produces RGBA; flatten composites alpha against white → 3-band RGB
     VImage rgbImage =
         (loaded.hasAlpha() ? loaded.flatten() : loaded).cast(VipsBandFormat.FORMAT_UCHAR);

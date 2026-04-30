@@ -32,7 +32,8 @@ public class CompareHandler implements CommandHandler<Compare> {
           var imageB = VImage.newFromFile(arena, cmd.imageB());
 
           int inputFormat = VipsHelper.image_get_format(imageA.getUnsafeStructAddress());
-          double maxValue = VipsHelper.image_get_format_max(inputFormat);
+          // double maxValue = VipsHelper.image_get_format_max(inputFormat);
+          double maxValue = this.getFormatMax(inputFormat);
 
           int aWidth = imageA.getWidth();
           int aHeight = imageA.getHeight();
@@ -69,6 +70,20 @@ public class CompareHandler implements CommandHandler<Compare> {
           ref.set(new CompareResult(channels, avgMae, avgMae / maxValue, dimensionMismatch));
         });
     return ref.get();
+  }
+
+  /** vips-8.10.6 compatibility, image_get_format_max not supported */
+  private static double getFormatMax(int format) {
+    return switch (format) {
+      case 0 -> 255.0; // FORMAT_UCHAR
+      case 1 -> 127.0; // FORMAT_CHAR
+      case 2 -> 65535.0; // FORMAT_USHORT
+      case 3 -> 32767.0; // FORMAT_SHORT
+      case 4 -> 4294967295.0; // FORMAT_UINT
+      case 5 -> 2147483647.0; // FORMAT_INT
+      case 6, 7 -> 1.0; // FORMAT_FLOAT, FORMAT_DOUBLE
+      default -> 255.0;
+    };
   }
 
   private void writeDiffImage(
