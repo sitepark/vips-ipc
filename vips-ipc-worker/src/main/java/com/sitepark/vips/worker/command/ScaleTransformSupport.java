@@ -22,6 +22,7 @@ import java.util.List;
 final class ScaleTransformSupport {
 
   private static final String STRIP = "strip";
+  private static final String BACKGROUND = "background";
 
   private ScaleTransformSupport() {}
 
@@ -84,21 +85,37 @@ final class ScaleTransformSupport {
         newWidth,
         newHeight,
         VipsOption.Enum("extend", VipsExtend.EXTEND_BACKGROUND),
-        VipsOption.ArrayDouble("background", Collections.nCopies(bands, 0.0)));
+        VipsOption.ArrayDouble(BACKGROUND, Collections.nCopies(bands, 0.0)));
   }
 
   private static VImage crop(VImage image, CropStep crop) {
     if (crop == null) {
       return image;
     }
-    int offsetX = Math.max(0, crop.offsetX());
-    int offsetY = Math.max(0, crop.offsetY());
-    int width = clampCropDimension(crop.width(), image.getWidth(), crop.offsetX());
-    int height = clampCropDimension(crop.height(), image.getHeight(), crop.offsetY());
-    if (width <= 0 || height <= 0) {
+    int srcX = Math.max(0, crop.offsetX());
+    int srcY = Math.max(0, crop.offsetY());
+    int overlapWidth = clampCropDimension(crop.width(), image.getWidth(), crop.offsetX());
+    int overlapHeight = clampCropDimension(crop.height(), image.getHeight(), crop.offsetY());
+    if (overlapWidth <= 0 || overlapHeight <= 0) {
       return image;
     }
-    return image.extractArea(offsetX, offsetY, width, height);
+    VImage extracted = image.extractArea(srcX, srcY, overlapWidth, overlapHeight);
+    if (overlapWidth == crop.width() && overlapHeight == crop.height()) {
+      return extracted;
+    }
+    // The crop region extends outside the image — embed the extracted portion into a canvas
+    // of the full crop size. Out-of-bounds areas get transparent fill here; the actual
+    // background color is applied during the write phase (flatten/composite).
+    int embedX = Math.max(0, -crop.offsetX());
+    int embedY = Math.max(0, -crop.offsetY());
+    int bands = VipsHelper.image_get_bands(extracted.getUnsafeStructAddress());
+    return extracted.embed(
+        embedX,
+        embedY,
+        crop.width(),
+        crop.height(),
+        VipsOption.Enum("extend", VipsExtend.EXTEND_BACKGROUND),
+        VipsOption.ArrayDouble(BACKGROUND, Collections.nCopies(bands, 0.0)));
   }
 
   /**
@@ -161,7 +178,7 @@ final class ScaleTransformSupport {
     switch (format) {
       case OutputFormat.JpegFormat jpg ->
           IptcBuilder.applyToImage(
-                  image.flatten(VipsOption.ArrayDouble("background", backgroundRgb)), metadata)
+                  image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
               .jpegsave(
                   path,
                   VipsOption.Int("Q", jpg.quality()),
@@ -169,7 +186,7 @@ final class ScaleTransformSupport {
                   VipsOption.Boolean(STRIP, jpg.strip()));
       case OutputFormat.WebpFormat webp ->
           IptcBuilder.applyToImage(
-                  image.flatten(VipsOption.ArrayDouble("background", backgroundRgb)), metadata)
+                  image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
               .webpsave(
                   path,
                   VipsOption.Int("Q", webp.quality()),

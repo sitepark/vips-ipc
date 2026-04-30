@@ -124,4 +124,19 @@ class ScaleTransformHandlerTest {
         result,
         "Negative offset with large request should still be clamped to image size at the right");
   }
+
+  @Test
+  void testCropWithNegativeOffsetYProducesFullHeight() {
+    // Image 250x250, crop height=256 offsetY=-3: overlap is 250 rows, embed into 256 canvas.
+    // clampCropDimension reports the extracted height; the caller embeds the rest as background.
+    int overlapHeight = ScaleTransformSupport.clampCropDimension(256, 250, -3);
+    assertEquals(250, overlapHeight, "Extracted overlap height should equal image height");
+  }
+
+  @Test
+  void testCropWithPositiveOffsetExceedingImageProducesPartialWidth() {
+    // Image 250px wide, crop width=200 offsetX=100: only 150px overlap on the right.
+    int overlapWidth = ScaleTransformSupport.clampCropDimension(200, 250, 100);
+    assertEquals(150, overlapWidth, "Overlap width should be clamped to remaining image pixels");
+  }
 }

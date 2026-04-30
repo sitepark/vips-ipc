@@ -11,16 +11,8 @@ import java.util.List;
 @SuppressWarnings("PMD.AvoidCatchingThrowable")
 public class GetEnvironmentHandler {
 
-  private static final List<String> LOADER_NICKNAMES =
-      List.of(
-          "jpegload",
-          "pngload",
-          "webpload",
-          "heifload",
-          "tiffload",
-          "gifload",
-          "svgload",
-          "pdfload");
+  private static final List<String> LOADER_FORMATS =
+      List.of("jpeg", "png", "webp", "heif", "tiff", "gif", "svg", "pdf");
 
   public VipsEnvironmentResponse handle(GetEnvironment cmd) {
     try {
@@ -31,9 +23,10 @@ public class GetEnvironmentHandler {
     try (var arena = Arena.ofConfined()) {
       String version = VipsHelper.version_string();
       List<String> formats = new ArrayList<>();
-      for (String nick : LOADER_NICKNAMES) {
+      for (String format : LOADER_FORMATS) {
+        String nick = format + "load";
         if (VipsHelper.type_find(arena, "VipsForeignLoad", nick) != 0) {
-          formats.add(nick);
+          formats.add(format);
         }
       }
       return new VipsEnvironmentResponse(version, List.copyOf(formats));
