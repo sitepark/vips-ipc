@@ -21,12 +21,11 @@ import java.nio.file.Path;
 import java.util.List;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 @RequiresVips
 class ScaleTransformBatchHandlerTest {
 
-  @TempDir Path tempDir;
+  Path tempDir = Path.of("target/test-output");
 
   /**
    * Demonstrates the hscale/vscale rounding bug in ScaleTransformBatchHandler.
@@ -59,7 +58,7 @@ class ScaleTransformBatchHandlerTest {
                     null,
                     null,
                     null,
-                    List.of(OutputFormat.jpeg()),
+                    List.of(OutputFormat.jpeg().withAppendExtension(false)),
                     null),
                 new BatchTarget(
                     target2,

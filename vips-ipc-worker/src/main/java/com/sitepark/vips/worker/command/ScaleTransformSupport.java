@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.List;
 
@@ -23,7 +24,6 @@ final class ScaleTransformSupport {
 
   private static final String STRIP = "strip";
   private static final String BACKGROUND = "background";
-  private static final String FORMAT = "format";
 
   private ScaleTransformSupport() {}
 
@@ -57,7 +57,11 @@ final class ScaleTransformSupport {
     image = resize(image, resize);
     image = border(image, border);
     image = crop(image, crop);
-    write(image, targetBase, formats, backgroundRgba, metadata);
+    try {
+      write(image, targetBase, formats, backgroundRgba, metadata);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   private static VImage resize(VImage image, ResizeStep resize) {
@@ -148,14 +152,15 @@ final class ScaleTransformSupport {
       String targetBase,
       List<OutputFormat> formats,
       List<Double> backgroundRgba,
-      Metadata metadata) {
+      Metadata metadata)
+      throws IOException {
     for (OutputFormat format : formats) {
       write(image, targetBase, format, backgroundRgba, metadata);
     }
   }
 
   private static String preparePath(String targetBase, OutputFormat format) {
-    String path = format.appendExtension() ? targetBase + "." + format.extension() : targetBase;
+    String path = targetBase + "." + format.extension();
     try {
       Path parent = Path.of(path).getParent();
       if (parent != null) {
@@ -167,14 +172,20 @@ final class ScaleTransformSupport {
     return path;
   }
 
+  private static String resultPath(String targetBase, OutputFormat format) {
+    return format.appendExtension() ? targetBase + "." + format.extension() : targetBase;
+  }
+
   private static void write(
       VImage image,
       String targetBase,
       OutputFormat format,
       List<Double> backgroundRgba,
-      Metadata metadata) {
+      Metadata metadata)
+      throws IOException {
 
     String path = preparePath(targetBase, format);
+    String resultPath = resultPath(targetBase, format);
     List<Double> backgroundRgb = backgroundRgba.subList(0, 3);
     switch (format) {
       case OutputFormat.JpegFormat jpg ->
@@ -182,7 +193,6 @@ final class ScaleTransformSupport {
                   image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
               .writeToFile(
                   path,
-                  VipsOption.String(FORMAT, format.extension()),
                   VipsOption.Int("Q", jpg.quality()),
                   VipsOption.Boolean("interlace", jpg.interlace()),
                   VipsOption.Boolean(STRIP, jpg.strip()));
@@ -191,7 +201,6 @@ final class ScaleTransformSupport {
                   image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
               .writeToFile(
                   path,
-                  VipsOption.String(FORMAT, format.extension()),
                   VipsOption.Int("Q", webp.quality()),
                   VipsOption.Boolean("lossless", webp.lossless()),
                   VipsOption.Boolean(STRIP, webp.strip()));
@@ -206,20 +215,14 @@ final class ScaleTransformSupport {
                       .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                       .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
                   metadata)
-              .writeToFile(
-                  path,
-                  VipsOption.String(FORMAT, format.extension()),
-                  VipsOption.Boolean(STRIP, png.strip()));
+              .writeToFile(path, VipsOption.Boolean(STRIP, png.strip()));
       case OutputFormat.GifFormat gif -> {
         IptcBuilder.applyToImage(
                 image
                     .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                     .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
                 metadata)
-            .writeToFile(
-                path,
-                VipsOption.String(FORMAT, format.extension()),
-                VipsOption.Boolean(STRIP, gif.strip()));
+            .writeToFile(path, VipsOption.Boolean(STRIP, gif.strip()));
       }
       case OutputFormat.AvifFormat avif ->
           IptcBuilder.applyToImage(
@@ -229,12 +232,15 @@ final class ScaleTransformSupport {
                   metadata)
               .writeToFile(
                   path,
-                  VipsOption.String(FORMAT, format.extension()),
                   VipsOption.Enum(
                       "compression", VipsForeignHeifCompression.FOREIGN_HEIF_COMPRESSION_AV1),
                   VipsOption.Int("Q", avif.quality()),
                   VipsOption.Boolean("lossless", avif.lossless()),
                   VipsOption.Boolean(STRIP, avif.strip()));
+    }
+
+    if (!path.equals(resultPath)) {
+      Files.move(Path.of(path), Path.of(resultPath), StandardCopyOption.REPLACE_EXISTING);
     }
   }
 
