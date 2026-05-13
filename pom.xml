@@ -88,7 +88,7 @@
 			<dependency>
 				<groupId>app.photofox.vips-ffm</groupId>
 				<artifactId>vips-ffm-core</artifactId>
-				<version>1.9.6</version>
+				<version>1.9.8</version>
 			</dependency>
 			<dependency>
 				<groupId>com.github.spotbugs</groupId>
