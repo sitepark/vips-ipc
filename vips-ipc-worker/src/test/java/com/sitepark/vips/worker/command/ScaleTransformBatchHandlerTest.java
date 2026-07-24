@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
+import app.photofox.vipsffm.enums.VipsInterpretation;
 import com.sitepark.vips.command.Metadata;
 import com.sitepark.vips.command.OutputFormat;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
@@ -21,11 +22,24 @@ import java.nio.file.Path;
 import java.util.List;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 @RequiresVips
 class ScaleTransformBatchHandlerTest {
 
   Path tempDir = Path.of("target/test-output");
+
+  /**
+   * A minimal grayscale SVG used as an own test source (not the customer file, never committed —
+   * written to a {@link TempDir} at runtime). Only black shapes, no color, so an old libvips would
+   * render it as a low-band-count image; the test forces that situation deterministically below.
+   */
+  private static final String GRAY_SVG =
+      """
+      <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+        <rect x="10" y="10" width="80" height="80" fill="#333333" stroke="#000000"/>
+      </svg>
+      """;
 
   /**
    * Demonstrates the hscale/vscale rounding bug in ScaleTransformBatchHandler.
@@ -217,6 +231,49 @@ class ScaleTransformBatchHandlerTest {
     byte[] expectedBytes = "Test-Description-äöüß".getBytes(StandardCharsets.UTF_8);
     assertTrue(
         containsBytes(fileBytes, expectedBytes), "IPTC description should appear in output JPEG");
+  }
+
+  /**
+   * Regression test for the VipsError "linear: vector must have 1 or 2 elements".
+   *
+   * <p>On the customer server an SVG arrives as a 2-band image (gray + alpha) instead of RGBA. The
+   * write path then applied a fixed 4-element background vector via {@code linear}, which libvips
+   * rejects for a 2-band image. Modern libvips loads even a grayscale SVG as 4-band RGBA, so we
+   * reproduce the 2-band situation deterministically with {@code colourspace(B_W)} — this keeps the
+   * test meaningful on any libvips version. {@code applyAndWrite} must not throw because it now
+   * normalises to sRGB first.
+   */
+  @Test
+  void testTwoBandGrayscaleSvgSourceDoesNotThrow(@TempDir Path tmp) throws IOException {
+    Path svg = tmp.resolve("gray.svg");
+    Files.writeString(svg, GRAY_SVG);
+    String source = svg.toAbsolutePath().toString();
+
+    Path outputDir = Path.of("target/test-output").toAbsolutePath();
+    String targetBase = outputDir.resolve("gray_svg_two_band").toString();
+
+    Vips.init();
+    assertDoesNotThrow(
+        () ->
+            Vips.run(
+                arena -> {
+                  // Force a 2-band (gray + alpha) image, mirroring the customer server's SVG load.
+                  VImage base =
+                      VImage.newFromFile(arena, source)
+                          .colourspace(VipsInterpretation.INTERPRETATION_B_W);
+                  ScaleTransformSupport.applyAndWrite(
+                      base,
+                      null,
+                      null,
+                      null,
+                      "0000FF80",
+                      targetBase,
+                      // png exercises the linear composite path (the actual crash),
+                      // jpeg the flatten path.
+                      List.of(OutputFormat.png(), OutputFormat.jpeg()),
+                      null);
+                }),
+        "2-band grayscale SVG source must not crash on linear/flatten");
   }
 
   private static boolean containsBytes(byte[] haystack, byte[] needle) {

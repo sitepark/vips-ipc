@@ -6,6 +6,7 @@ import app.photofox.vipsffm.VipsOption;
 import app.photofox.vipsffm.enums.VipsBlendMode;
 import app.photofox.vipsffm.enums.VipsExtend;
 import app.photofox.vipsffm.enums.VipsForeignHeifCompression;
+import app.photofox.vipsffm.enums.VipsInterpretation;
 import com.sitepark.vips.command.Metadata;
 import com.sitepark.vips.command.OutputFormat;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
@@ -49,6 +50,14 @@ final class ScaleTransformSupport {
     List<Double> backgroundRgba = parseBackground(background);
 
     var image = base;
+
+    // Normalise to sRGB first so the band count is deterministic regardless of the loader used
+    // (e.g. an SVG rendered by an older librsvg can arrive as 1-band gray or 2-band gray+alpha
+    // instead of RGBA). colourspace preserves any existing alpha band: gray -> RGB (3),
+    // gray+alpha -> RGBA (4), RGB/RGBA stay unchanged. This keeps the fixed-length background
+    // vectors used below valid (subList(0, 3) for flatten, 4-element vector for the linear
+    // composite), which otherwise fail with "vector must have 1 or N elements".
+    image = image.colourspace(VipsInterpretation.INTERPRETATION_sRGB);
 
     if (!VipsHelper.image_hasalpha(image.getUnsafeStructAddress())) {
       image = image.bandjoinConst(List.of(255.0));
