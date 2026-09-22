@@ -89,21 +89,76 @@ concurrency and increase pool size: `builder.concurrency(1).buildPool(availableP
 - Returns one JSON response per command on stdout, flushed immediately
 - Calls `Vips.shutdown()` on clean exit; exits with code 1 on fatal error
 
-### Metadata (IPTC)
+### Metadata
 
-`scaleTransform()` and each `BatchTarget` in `scaleTransformBatch()` accept an optional `Metadata`
-parameter (pass `null` to skip). Non-null fields are embedded as **IPTC IIM Application2** data
-into the output image:
+Every command that writes an image (`resize`, `thumbnail`, `scale-transform`,
+`scale-transform-batch`) applies the same policy. It is always on; However a per-format `strip: true` still
+suppresses everything.
 
-| `Metadata` field | IPTC tag | Description          |
-|-----------------|----------|----------------------|
-| `title`         | 5        | ObjectName           |
-| `copyright`     | 116      | CopyrightNotice      |
-| `description`   | 120      | Caption-Abstract     |
+**Written from the caller's `Metadata`** — nothing is copied from the source for these, so a field
+the caller leaves `null` is simply absent from the output:
 
-The `IptcBuilder` helper (worker module) constructs the binary blob; each field is encoded as
-`0x1C 0x02 <tag> <len_hi> <len_lo> <utf8_bytes>`. Fields with a value exceeding 65535 UTF-8 bytes
-throw `IllegalArgumentException`.
+| `Metadata` field | IPTC dataset | Description      |
+|------------------|--------------|------------------|
+| `title`          | 5            | ObjectName       |
+| `copyright`      | 116          | CopyrightNotice  |
+| `description`    | 120          | Caption-Abstract |
+
+**Copied from the source** — the hardcoded whitelist, one entry:
+
+| Property                        | Transport |
+|---------------------------------|-----------|
+| `Iptc4xmpExt:DigitalSourceType` | XMP       |
+
+`DigitalSourceType` (the AI-provenance marker) is whitelisted precisely because it has no IPTC IIM
+equivalent: a rebuilt XMP packet is the only way it can survive, since the source packet is dropped.
+
+**Dropped:** EXIF (including the embedded thumbnail), the source XMP packet, and the Photoshop
+resource block. **Kept:** the ICC profile, because dropping it would shift the colours of a
+wide-gamut source. libvips still writes a synthesised baseline EXIF (version, resolution,
+dimensions) that carries nothing from the source.
+
+**Orientation** is baked into the pixels with `autorot()` at load rather than preserved as a tag —
+the tag can only live inside the EXIF block the policy drops.
+
+**Consequence:** an image processed *without* a `Metadata` carries no IPTC at all, even when the
+source had some. In 2.0.0 the single-target path propagated it (the batch path already lost it).
+
+#### Byte layout
+
+`iptc-data` is **not** a bare IIM stream. libvips takes the whole JPEG `APP13` payload on load and
+writes it back verbatim, so the blob is a Photoshop Image Resource Block:
+
+```
+"Photoshop 3.0\0"
+( "8BIM" <id:2> <pascal name, padded to even> <size:4> <body> <pad to even> )*
+```
+
+The IPTC IIM stream lives in resource `0x0404` and is a sequence of datasets:
+
+```
+0x1C <record:1> <dataset:1> <len:2> <value>
+```
+
+with an extended form when the high bit of `len` is set (its low 15 bits then give the number of
+following bytes holding the real length). Without the IRB the `APP13` identifier is unrecognised and
+every standard reader skips the segment. The stream opens with `1:90 = ESC % G`, declaring UTF-8;
+without it readers fall back to ISO-8859-1. Values over 65535 UTF-8 bytes throw
+`IllegalArgumentException`.
+
+#### Worker classes
+
+`XmpTag` holds the copy-forward whitelist. `PhotoshopIrb` wraps the IRB container, `IptcBuilder`
+writes the IIM stream, `XmpReader` / `XmpBuilder` handle the XMP packet, `ImageMetadata` the raw
+libvips fields, and `MetadataPolicy` the replace-and-drop applied at each write.
+`SourceMetadata.capture()` must run **before** any processing — the batch path decodes through
+`writeToMemory()` / `newFromMemory()`, which strips the whole header. Production never parses IPTC;
+the test-scope `IptcParser` exists so tests can assert what was written the way a real reader sees
+it, rather than scanning the output for raw value bytes.
+
+**Limitation:** libvips' `gifsave` writes neither IPTC nor XMP, so metadata is lost for GIF output.
+For PNG, WebP and AVIF only the XMP packet applies — libvips writes `iptc-data` for JPEG and TIFF
+only, so title/copyright/description do not reach those formats.
 
 ### Adding a New Command
 

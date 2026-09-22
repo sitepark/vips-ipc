@@ -20,6 +20,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -28,6 +30,12 @@ import org.junit.jupiter.api.io.TempDir;
 class ScaleTransformBatchHandlerTest {
 
   Path tempDir = Path.of("target/test-output");
+
+  private static final int OBJECT_NAME = 5;
+  private static final int COPYRIGHT_NOTICE = 116;
+  private static final int CAPTION_ABSTRACT = 120;
+  private static final String TRAINED_ALGORITHMIC =
+      "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia";
 
   /**
    * A minimal grayscale SVG used as an own test source (not the customer file, never committed —
@@ -115,7 +123,7 @@ class ScaleTransformBatchHandlerTest {
               "0000FF80",
               targetBase,
               List.of(OutputFormat.jpeg()),
-              null);
+              MetadataContext.empty());
         });
 
     assertTrue(Files.exists(output), "Output JPEG should exist at " + output);
@@ -140,7 +148,7 @@ class ScaleTransformBatchHandlerTest {
               "0000FF80",
               targetBase,
               List.of(OutputFormat.png()),
-              null);
+              MetadataContext.empty());
         });
 
     BufferedImage img = ImageIO.read(output.toFile());
@@ -169,7 +177,7 @@ class ScaleTransformBatchHandlerTest {
               "0000FF80",
               targetBase,
               List.of(OutputFormat.png()),
-              null);
+              MetadataContext.empty());
         });
 
     BufferedImage img = ImageIO.read(output.toFile());
@@ -177,17 +185,32 @@ class ScaleTransformBatchHandlerTest {
     assertEquals(0xFF, alpha, "Opaque source pixel at image center should have alpha=255");
   }
 
-  @Test
-  void testScaleWithMetadataCopyrightInOutputJpeg() throws IOException {
-    String source = getTestResource("generation_bruehl_stempel.jpg");
-    Path output = tempDir.resolve("with_metadata.jpg");
-    String targetBase = output.toString().replace(".jpg", "");
-    var metadata = new Metadata("Test-Copyright-äöüß", null, null);
+  /**
+   * Runs the write pipeline over the metadata-rich fixture and parses the IPTC block back out of the
+   * result.
+   *
+   * <p>Parsing rather than scanning for raw bytes is deliberate: a byte scan passes even when the
+   * IPTC stream is written without its Photoshop wrapper, which is how the missing wrapper went
+   * unnoticed.
+   */
+  private Map<Integer, List<String>> scaleAndReadIptc(String name, Metadata explicit)
+      throws IOException {
+    return scaleAndReadIptc(name, explicit, getTestResource("generation_bruehl_stempel.jpg"));
+  }
 
+  private Map<Integer, List<String>> scaleAndReadIptc(String name, Metadata explicit, String source)
+      throws IOException {
+    scale(name, explicit, source);
+    return IptcParser.parse(JpegSegments.readIptc(tempDir.resolve(name + ".jpg")));
+  }
+
+  private void scale(String name, Metadata explicit, String source) {
+    String targetBase = tempDir.resolve(name + ".jpg").toString().replace(".jpg", "");
     Vips.init();
     Vips.run(
         arena -> {
           VImage base = VImage.newFromFile(arena, source);
+          var metadata = new MetadataContext(SourceMetadata.capture(base), explicit);
           ScaleTransformSupport.applyAndWrite(
               base,
               new ResizeStep(300, 200),
@@ -198,39 +221,101 @@ class ScaleTransformBatchHandlerTest {
               List.of(OutputFormat.jpeg()),
               metadata);
         });
-
-    byte[] fileBytes = Files.readAllBytes(output);
-    byte[] expectedBytes = "Test-Copyright-äöüß".getBytes(StandardCharsets.UTF_8);
-    assertTrue(
-        containsBytes(fileBytes, expectedBytes), "IPTC copyright should appear in output JPEG");
   }
 
   @Test
-  void testScaleWithMetadataDescriptionInOutputJpeg() throws IOException {
-    String source = getTestResource("generation_bruehl_stempel.jpg");
-    Path output = tempDir.resolve("with_metadata_desc.jpg");
-    String targetBase = output.toString().replace(".jpg", "");
-    var metadata = new Metadata(null, null, "Test-Description-äöüß");
+  void testExplicitMetadataIsWrittenToOutputJpeg() throws IOException {
+    assertEquals(
+        Map.of(
+            OBJECT_NAME, List.of("Test-Titel-äöüß"),
+            COPYRIGHT_NOTICE, List.of("Test-Copyright-äöüß"),
+            CAPTION_ABSTRACT, List.of("Test-Description-äöüß")),
+        scaleAndReadIptc(
+            "with_metadata",
+            new Metadata("Test-Copyright-äöüß", "Test-Titel-äöüß", "Test-Description-äöüß")),
+        "The caller's metadata should land in a readable IPTC block");
+  }
+
+  @Test
+  void testOnlyTheFieldsTheCallerSuppliedAreWritten() throws IOException {
+    assertEquals(
+        Map.of(COPYRIGHT_NOTICE, List.of("Nur-Copyright")),
+        scaleAndReadIptc("partial_metadata", new Metadata("Nur-Copyright", null, null)),
+        "Fields the caller left null must stay absent rather than fall back to the source");
+  }
+
+  @Test
+  void testSourceIptcIsNotCarriedIntoOutputJpeg() throws IOException {
+    assertEquals(
+        Map.of(),
+        scaleAndReadIptc("no_metadata", null),
+        "Source IPTC is not copied, so without a Metadata the output carries none at all");
+  }
+
+  @Test
+  void testSourceIptcValuesDoNotLeakIntoOutputJpeg() throws IOException {
+    scale("no_leak", null, getTestResource("generation_bruehl_stempel.jpg"));
+    byte[] fileBytes = Files.readAllBytes(tempDir.resolve("no_leak.jpg"));
+
+    List<String> leaked =
+        Stream.of(
+                "Dokumententitel",
+                "IPTC Ersteller",
+                "Stichwörter",
+                "Berufstitel",
+                "Verfasser",
+                "www.sitepark.com",
+                "Adobe Photoshop CS5")
+            .filter(v -> containsBytes(fileBytes, v.getBytes(StandardCharsets.UTF_8)))
+            .toList();
+
+    assertEquals(List.of(), leaked, "No source IPTC, Photoshop or EXIF value may reach the output");
+  }
+
+  @Test
+  void testEmbeddedExifThumbnailIsDroppedFromOutputJpeg() throws IOException {
+    // The source carries a 1695-byte EXIF thumbnail. libvips exposes it as its own field and would
+    // write it back as IFD1, shipping a small copy of the original inside every derivative.
+    scale("no_thumbnail", null, getTestResource("generation_bruehl_stempel.jpg"));
+
+    byte[] sourceBytes =
+        Files.readAllBytes(Path.of(getTestResource("generation_bruehl_stempel.jpg")));
+    byte[] outputBytes = Files.readAllBytes(tempDir.resolve("no_thumbnail.jpg"));
+    // A distinctive run from inside the source's embedded thumbnail.
+    byte[] thumbnailMarker = new byte[64];
+    System.arraycopy(sourceBytes, 426 + 200, thumbnailMarker, 0, thumbnailMarker.length);
+
+    assertFalse(
+        containsBytes(outputBytes, thumbnailMarker),
+        "The embedded EXIF thumbnail must not reach the output");
+  }
+
+  /**
+   * No repo fixture carries DigitalSourceType, so the source is produced here: set the XMP packet on
+   * an image and save it. Generating it with libvips keeps the test free of external tooling.
+   */
+  @Test
+  void testDigitalSourceTypeIsCarriedIntoOutputJpeg() throws IOException {
+    Path source = tempDir.resolve("ai_source.jpg");
+    byte[] packet =
+        XmpBuilder.buildPacket(Map.of(XmpTag.DIGITAL_SOURCE_TYPE, List.of(TRAINED_ALGORITHMIC)));
 
     Vips.init();
     Vips.run(
         arena -> {
-          VImage base = VImage.newFromFile(arena, source);
-          ScaleTransformSupport.applyAndWrite(
-              base,
-              new ResizeStep(300, 200),
-              null,
-              null,
-              null,
-              targetBase,
-              List.of(OutputFormat.jpeg()),
-              metadata);
+          VImage image =
+              VImage.newFromFile(arena, getTestResource("musterbild_hochkant_08.jpg")).copy();
+          ImageMetadata.setBlob(image, ImageMetadata.XMP, packet);
+          image.writeToFile(source.toString());
         });
 
-    byte[] fileBytes = Files.readAllBytes(output);
-    byte[] expectedBytes = "Test-Description-äöüß".getBytes(StandardCharsets.UTF_8);
-    assertTrue(
-        containsBytes(fileBytes, expectedBytes), "IPTC description should appear in output JPEG");
+    scale("ai_derived", new Metadata("(c)", "Titel", null), source.toString());
+    byte[] xmpData = JpegSegments.readXmp(tempDir.resolve("ai_derived.jpg"));
+
+    assertEquals(
+        List.of(TRAINED_ALGORITHMIC),
+        XmpReader.parse(xmpData).get(XmpTag.DIGITAL_SOURCE_TYPE),
+        "DigitalSourceType is the one field carried over from the source image");
   }
 
   /**
@@ -271,7 +356,7 @@ class ScaleTransformBatchHandlerTest {
                       // png exercises the linear composite path (the actual crash),
                       // jpeg the flatten path.
                       List.of(OutputFormat.png(), OutputFormat.jpeg()),
-                      null);
+                      MetadataContext.empty());
                 }),
         "2-band grayscale SVG source must not crash on linear/flatten");
   }

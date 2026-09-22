@@ -7,7 +7,6 @@ import app.photofox.vipsffm.enums.VipsBlendMode;
 import app.photofox.vipsffm.enums.VipsExtend;
 import app.photofox.vipsffm.enums.VipsForeignHeifCompression;
 import app.photofox.vipsffm.enums.VipsInterpretation;
-import com.sitepark.vips.command.Metadata;
 import com.sitepark.vips.command.OutputFormat;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.CropStep;
@@ -41,7 +40,7 @@ final class ScaleTransformSupport {
       String background,
       String targetBase,
       List<OutputFormat> formats,
-      Metadata metadata) {
+      MetadataContext metadata) {
 
     if (formats == null) {
       return;
@@ -161,7 +160,7 @@ final class ScaleTransformSupport {
       String targetBase,
       List<OutputFormat> formats,
       List<Double> backgroundRgba,
-      Metadata metadata)
+      MetadataContext metadata)
       throws IOException {
     for (OutputFormat format : formats) {
       write(image, targetBase, format, backgroundRgba, metadata);
@@ -190,7 +189,7 @@ final class ScaleTransformSupport {
       String targetBase,
       OutputFormat format,
       List<Double> backgroundRgba,
-      Metadata metadata)
+      MetadataContext metadata)
       throws IOException {
 
     String path = preparePath(targetBase, format);
@@ -198,7 +197,7 @@ final class ScaleTransformSupport {
     List<Double> backgroundRgb = backgroundRgba.subList(0, 3);
     switch (format) {
       case OutputFormat.JpegFormat jpg ->
-          IptcBuilder.applyToImage(
+          MetadataPolicy.apply(
                   image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
               .writeToFile(
                   path,
@@ -206,7 +205,7 @@ final class ScaleTransformSupport {
                   VipsOption.Boolean("interlace", jpg.interlace()),
                   VipsOption.Boolean(STRIP, jpg.strip()));
       case OutputFormat.WebpFormat webp ->
-          IptcBuilder.applyToImage(
+          MetadataPolicy.apply(
                   image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
               .writeToFile(
                   path,
@@ -219,14 +218,14 @@ final class ScaleTransformSupport {
           // - opaque source pixels     → (src_rgb, 255)
           // The border fill (transparent black from embed) produces the same result as image
           // transparent pixels — both blend to bg_rgba via Porter-Duff OVER.
-          IptcBuilder.applyToImage(
+          MetadataPolicy.apply(
                   image
                       .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                       .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
                   metadata)
               .writeToFile(path, VipsOption.Boolean(STRIP, png.strip()));
       case OutputFormat.GifFormat gif -> {
-        IptcBuilder.applyToImage(
+        MetadataPolicy.apply(
                 image
                     .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                     .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
@@ -234,7 +233,7 @@ final class ScaleTransformSupport {
             .writeToFile(path, VipsOption.Boolean(STRIP, gif.strip()));
       }
       case OutputFormat.AvifFormat avif ->
-          IptcBuilder.applyToImage(
+          MetadataPolicy.apply(
                   image
                       .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                       .composite2(image, VipsBlendMode.BLEND_MODE_OVER),

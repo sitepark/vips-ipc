@@ -10,6 +10,7 @@ import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
 import java.lang.foreign.MemorySegment;
 
+@SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops") // one context per target, by design
 public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransformBatch> {
 
   @Override
@@ -30,6 +31,11 @@ public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransform
                   .mapToInt(t -> t.resize().height())
                   .max()
                   .orElse(0);
+
+          // Capture the whitelisted metadata from the source header before the memory round-trip
+          // below discards it. newFromFile is lazy, so this reads the header only.
+          SourceMetadata sourceMetadata =
+              SourceMetadata.capture(VImage.newFromFile(arena, cmd.source()));
 
           // Load with thumbnail() for JPEG/WebP shrink-on-load efficiency, then
           // materialize to a random-access in-memory image. thumbnail() uses sequential
@@ -62,7 +68,8 @@ public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransform
                     VipsOption.Double("xres", xres),
                     VipsOption.Double("yres", yres));
           } else {
-            base = VImage.newFromFile(arena, cmd.source());
+            // thumbnail() auto-rotates; the direct load does not, so match it here.
+            base = VImage.newFromFile(arena, cmd.source()).autorot();
           }
 
           for (BatchTarget target : cmd.targets()) {
@@ -74,7 +81,7 @@ public class ScaleTransformBatchHandler implements CommandHandler<ScaleTransform
                 target.background(),
                 target.target(),
                 target.formats(),
-                target.metadata());
+                new MetadataContext(sourceMetadata, target.metadata()));
           }
         });
     return null;
