@@ -46,6 +46,24 @@ class XmpReaderTest {
   }
 
   @Test
+  void testParseMatchesOnNamespaceUriRatherThanPrefix() {
+    // An XMP prefix is an arbitrary local binding. IPTC documents Iptc4xmpExt, but exiftool and
+    // Adobe write iptcExt for the same namespace, and any other prefix is equally valid.
+    String packet =
+        "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">"
+            + "<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">"
+            + "<rdf:Description rdf:about=\"\""
+            + " xmlns:iptcExt=\"http://iptc.org/std/Iptc4xmpExt/2008-02-29/\">"
+            + "<iptcExt:DigitalSourceType>algorithmicMedia</iptcExt:DigitalSourceType>"
+            + "</rdf:Description></rdf:RDF></x:xmpmeta>";
+
+    assertEquals(
+        List.of("algorithmicMedia"),
+        XmpReader.parse(packet.getBytes(StandardCharsets.UTF_8)).get(XmpTag.DIGITAL_SOURCE_TYPE),
+        "A different prefix bound to the same namespace must still be recognised");
+  }
+
+  @Test
   void testParseIgnoresWhitelistedNameInAnotherNamespace() {
     String packet =
         "<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">"
