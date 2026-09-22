@@ -118,8 +118,15 @@ resource block. **Kept:** the ICC profile, because dropping it would shift the c
 wide-gamut source. libvips still writes a synthesised baseline EXIF (version, resolution,
 dimensions) that carries nothing from the source.
 
-**Orientation** is baked into the pixels with `autorot()` at load rather than preserved as a tag —
-the tag can only live inside the EXIF block the policy drops.
+**Orientation** is baked into the pixels with `autorot()` at load rather than preserved as a tag.
+Not for want of somewhere to put it — libvips writes a synthesised baseline EXIF on JPEG save even
+when `exif-data` was dropped, so the output always has an Orientation slot; it just reads 1. The
+reason is geometry: a command's resize width/height, border insets and crop offsets are all in
+display coordinates, while a rotated source's stored pixels are not, and `ScaleTransformSupport`
+scales each axis to an exact requested size. Applying those numbers to unrotated pixels squashes the
+image — a 4000×3000 source tagged "rotate 90°" asked for 300×400 would scale by 0.075 horizontally
+and 0.133 vertically. Rotating first makes them agree, and matches `vips_thumbnail` (used by the
+batch path), which rotates upright by default.
 
 **Consequence:** an image processed *without* a `Metadata` carries no IPTC at all, even when the
 source had some. In 2.0.0 the single-target path propagated it (the batch path already lost it).

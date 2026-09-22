@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
+import app.photofox.vipsffm.enums.VipsAngle;
 import app.photofox.vipsffm.enums.VipsInterpretation;
 import com.sitepark.vips.command.Metadata;
 import com.sitepark.vips.command.OutputFormat;
@@ -34,6 +35,8 @@ class ScaleTransformBatchHandlerTest {
   private static final int OBJECT_NAME = 5;
   private static final int COPYRIGHT_NOTICE = 116;
   private static final int CAPTION_ABSTRACT = 120;
+  private static final String ORIENTATION_FIELD = "orientation";
+  private static final int ROTATE_90_CW = 6;
   private static final String TRAINED_ALGORITHMIC =
       "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia";
 
@@ -316,6 +319,84 @@ class ScaleTransformBatchHandlerTest {
         List.of(TRAINED_ALGORITHMIC),
         XmpReader.parse(xmpData).get(XmpTag.DIGITAL_SOURCE_TYPE),
         "DigitalSourceType is the one field carried over from the source image");
+  }
+
+  /**
+   * Writes a landscape-pixel source tagged "rotate 90° CW for display", i.e. an image whose display
+   * geometry is portrait while its stored pixels are not. No repo fixture carries an orientation
+   * other than 1, so the source is produced here.
+   */
+  private String writeRotatedSource(String name) {
+    Path source = tempDir.resolve(name + ".jpg");
+    Vips.init();
+    Vips.run(
+        arena -> {
+          VImage landscape =
+              VImage.newFromFile(arena, getTestResource("musterbild_hochkant_08.jpg"))
+                  .rot(VipsAngle.ANGLE_D90)
+                  .copy();
+          landscape.set(ORIENTATION_FIELD, ROTATE_90_CW);
+          landscape.writeToFile(source.toString());
+        });
+    return source.toString();
+  }
+
+  /** The stored orientation of {@code file}; an absent tag means upright. */
+  private static int orientationOf(Path file) {
+    int[] orientation = {1};
+    Vips.run(
+        arena -> {
+          Integer value = VImage.newFromFile(arena, file.toString()).getInt(ORIENTATION_FIELD);
+          orientation[0] = value == null ? 1 : value;
+        });
+    return orientation[0];
+  }
+
+  /** Runs the pipeline with no resize step, so the output keeps the source's own geometry. */
+  private void scaleWithoutResize(String name, String source) {
+    String targetBase = tempDir.resolve(name + ".jpg").toString().replace(".jpg", "");
+    Vips.init();
+    Vips.run(
+        arena -> {
+          VImage base = VImage.newFromFile(arena, source);
+          var metadata = new MetadataContext(SourceMetadata.capture(base), null);
+          ScaleTransformSupport.applyAndWrite(
+              base.autorot(),
+              null,
+              null,
+              null,
+              null,
+              targetBase,
+              List.of(OutputFormat.jpeg()),
+              metadata);
+        });
+  }
+
+  /**
+   * The source stores 600x402 landscape pixels tagged "rotate 90° for display", so its display
+   * geometry is 402x600. With the rotation baked in the output is portrait; without autorot it would
+   * come out 600x402 and every later crop or border offset would land on swapped axes.
+   */
+  @Test
+  void testRotatedSourceIsUprightedBeforeProcessing() throws IOException {
+    scaleWithoutResize("rotated_geometry", writeRotatedSource("rotated_src_geometry"));
+
+    BufferedImage output = ImageIO.read(tempDir.resolve("rotated_geometry.jpg").toFile());
+
+    assertEquals(
+        List.of(402, 600),
+        List.of(output.getWidth(), output.getHeight()),
+        "The rotation must be applied to the pixels, giving the source's display geometry");
+  }
+
+  @Test
+  void testRotatedSourceIsNotRotatedTwice() throws IOException {
+    scaleWithoutResize("rotated_upright", writeRotatedSource("rotated_src_upright"));
+
+    assertEquals(
+        1,
+        orientationOf(tempDir.resolve("rotated_upright.jpg")),
+        "autorot bakes the rotation into the pixels, so a leftover tag would rotate it again");
   }
 
   /**

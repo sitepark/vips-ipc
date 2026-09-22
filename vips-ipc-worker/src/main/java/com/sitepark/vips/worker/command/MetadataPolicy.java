@@ -21,8 +21,17 @@ import java.util.Map;
  * </ul>
  *
  * <p>The ICC profile is the exception: it is kept, because dropping it would shift the colours of a
- * wide-gamut source. The EXIF orientation is not kept — it can only live inside the EXIF block, so
- * the handlers bake the rotation into the pixels with {@code autorot()} at load instead.
+ * wide-gamut source.
+ *
+ * <p>The EXIF orientation is not carried over either, but not because it could not be: libvips
+ * writes a synthesised baseline EXIF on save even when {@code exif-data} was dropped, and that block
+ * has an Orientation slot. The handlers bake the rotation into the pixels with {@code autorot()} at
+ * load instead, because every geometry parameter of a command — the resize width and height, the
+ * border insets, the crop offsets — is expressed in display coordinates, while the stored pixels of
+ * a rotated source are not. {@code ScaleTransformSupport} scales each axis to an exact requested
+ * size, so applying those numbers to unrotated pixels squashes the image. Rotating first is what
+ * makes the two agree, and it also matches {@code vips_thumbnail}, which the batch path uses and
+ * which rotates upright by default.
  */
 final class MetadataPolicy {
 
