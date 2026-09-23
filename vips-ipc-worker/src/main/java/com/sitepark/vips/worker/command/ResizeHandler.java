@@ -4,6 +4,9 @@ import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
 import com.sitepark.vips.command.Resize;
 import com.sitepark.vips.command.Result;
+import com.sitepark.vips.worker.metadata.MetadataContext;
+import com.sitepark.vips.worker.metadata.MetadataPolicy;
+import com.sitepark.vips.worker.metadata.SourceMetadata;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -17,7 +20,8 @@ public class ResizeHandler implements CommandHandler<Resize> {
     Vips.run(
         arena -> {
           var image = VImage.newFromFile(arena, cmd.source());
-          var scaled = image.resize(cmd.scale());
+          var metadata = new MetadataContext(SourceMetadata.capture(image), null);
+          var scaled = image.autorot().resize(cmd.scale());
           try {
             Path parent = Path.of(cmd.target()).getParent();
             if (parent != null) {
@@ -26,7 +30,7 @@ public class ResizeHandler implements CommandHandler<Resize> {
           } catch (IOException e) {
             throw new UncheckedIOException(e);
           }
-          scaled.writeToFile(cmd.target());
+          MetadataPolicy.apply(scaled, metadata).writeToFile(cmd.target());
         });
     return null;
   }
