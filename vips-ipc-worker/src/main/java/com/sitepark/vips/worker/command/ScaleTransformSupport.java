@@ -6,15 +6,18 @@ import app.photofox.vipsffm.VipsOption;
 import app.photofox.vipsffm.enums.VipsBlendMode;
 import app.photofox.vipsffm.enums.VipsExtend;
 import app.photofox.vipsffm.enums.VipsForeignHeifCompression;
-import com.sitepark.vips.command.Metadata;
+import app.photofox.vipsffm.enums.VipsInterpretation;
 import com.sitepark.vips.command.OutputFormat;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.CropStep;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
+import com.sitepark.vips.worker.metadata.MetadataContext;
+import com.sitepark.vips.worker.metadata.MetadataPolicy;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.List;
 
@@ -39,7 +42,7 @@ final class ScaleTransformSupport {
       String background,
       String targetBase,
       List<OutputFormat> formats,
-      Metadata metadata) {
+      MetadataContext metadata) {
 
     if (formats == null) {
       return;
@@ -49,6 +52,14 @@ final class ScaleTransformSupport {
 
     var image = base;
 
+    // Normalise to sRGB first so the band count is deterministic regardless of the loader used
+    // (e.g. an SVG rendered by an older librsvg can arrive as 1-band gray or 2-band gray+alpha
+    // instead of RGBA). colourspace preserves any existing alpha band: gray -> RGB (3),
+    // gray+alpha -> RGBA (4), RGB/RGBA stay unchanged. This keeps the fixed-length background
+    // vectors used below valid (subList(0, 3) for flatten, 4-element vector for the linear
+    // composite), which otherwise fail with "vector must have 1 or N elements".
+    image = image.colourspace(VipsInterpretation.INTERPRETATION_sRGB);
+
     if (!VipsHelper.image_hasalpha(image.getUnsafeStructAddress())) {
       image = image.bandjoinConst(List.of(255.0));
     }
@@ -56,7 +67,11 @@ final class ScaleTransformSupport {
     image = resize(image, resize);
     image = border(image, border);
     image = crop(image, crop);
-    write(image, targetBase, formats, backgroundRgba, metadata);
+    try {
+      write(image, targetBase, formats, backgroundRgba, metadata);
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
   }
 
   private static VImage resize(VImage image, ResizeStep resize) {
@@ -147,14 +162,15 @@ final class ScaleTransformSupport {
       String targetBase,
       List<OutputFormat> formats,
       List<Double> backgroundRgba,
-      Metadata metadata) {
+      MetadataContext metadata)
+      throws IOException {
     for (OutputFormat format : formats) {
       write(image, targetBase, format, backgroundRgba, metadata);
     }
   }
 
   private static String preparePath(String targetBase, OutputFormat format) {
-    String path = format.appendExtension() ? targetBase + "." + format.extension() : targetBase;
+    String path = targetBase + "." + format.extension();
     try {
       Path parent = Path.of(path).getParent();
       if (parent != null) {
@@ -166,28 +182,34 @@ final class ScaleTransformSupport {
     return path;
   }
 
+  private static String resultPath(String targetBase, OutputFormat format) {
+    return format.appendExtension() ? targetBase + "." + format.extension() : targetBase;
+  }
+
   private static void write(
       VImage image,
       String targetBase,
       OutputFormat format,
       List<Double> backgroundRgba,
-      Metadata metadata) {
+      MetadataContext metadata)
+      throws IOException {
 
     String path = preparePath(targetBase, format);
+    String resultPath = resultPath(targetBase, format);
     List<Double> backgroundRgb = backgroundRgba.subList(0, 3);
     switch (format) {
       case OutputFormat.JpegFormat jpg ->
-          IptcBuilder.applyToImage(
+          MetadataPolicy.apply(
                   image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
-              .jpegsave(
+              .writeToFile(
                   path,
                   VipsOption.Int("Q", jpg.quality()),
                   VipsOption.Boolean("interlace", jpg.interlace()),
                   VipsOption.Boolean(STRIP, jpg.strip()));
       case OutputFormat.WebpFormat webp ->
-          IptcBuilder.applyToImage(
+          MetadataPolicy.apply(
                   image.flatten(VipsOption.ArrayDouble(BACKGROUND, backgroundRgb)), metadata)
-              .webpsave(
+              .writeToFile(
                   path,
                   VipsOption.Int("Q", webp.quality()),
                   VipsOption.Boolean("lossless", webp.lossless()),
@@ -198,32 +220,37 @@ final class ScaleTransformSupport {
           // - opaque source pixels     → (src_rgb, 255)
           // The border fill (transparent black from embed) produces the same result as image
           // transparent pixels — both blend to bg_rgba via Porter-Duff OVER.
-          IptcBuilder.applyToImage(
+          MetadataPolicy.apply(
                   image
                       .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                       .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
                   metadata)
-              .pngsave(path, VipsOption.Boolean(STRIP, png.strip()));
-      case OutputFormat.GifFormat gif ->
-          IptcBuilder.applyToImage(
-                  image
-                      .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
-                      .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
-                  metadata)
-              .gifsave(path, VipsOption.Boolean(STRIP, gif.strip()));
+              .writeToFile(path, VipsOption.Boolean(STRIP, png.strip()));
+      case OutputFormat.GifFormat gif -> {
+        MetadataPolicy.apply(
+                image
+                    .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
+                    .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
+                metadata)
+            .writeToFile(path, VipsOption.Boolean(STRIP, gif.strip()));
+      }
       case OutputFormat.AvifFormat avif ->
-          IptcBuilder.applyToImage(
+          MetadataPolicy.apply(
                   image
                       .linear(List.of(0.0, 0.0, 0.0, 0.0), backgroundRgba)
                       .composite2(image, VipsBlendMode.BLEND_MODE_OVER),
                   metadata)
-              .heifsave(
+              .writeToFile(
                   path,
                   VipsOption.Enum(
                       "compression", VipsForeignHeifCompression.FOREIGN_HEIF_COMPRESSION_AV1),
                   VipsOption.Int("Q", avif.quality()),
                   VipsOption.Boolean("lossless", avif.lossless()),
                   VipsOption.Boolean(STRIP, avif.strip()));
+    }
+
+    if (!path.equals(resultPath)) {
+      Files.move(Path.of(path), Path.of(resultPath), StandardCopyOption.REPLACE_EXISTING);
     }
   }
 
