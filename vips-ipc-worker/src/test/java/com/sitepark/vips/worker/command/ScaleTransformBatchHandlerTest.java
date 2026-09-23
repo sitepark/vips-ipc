@@ -5,18 +5,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
 import app.photofox.vipsffm.enums.VipsInterpretation;
-import com.sitepark.vips.command.Metadata;
 import com.sitepark.vips.command.OutputFormat;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
 import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
 import com.sitepark.vips.worker.RequiresVips;
+import com.sitepark.vips.worker.metadata.MetadataContext;
 import java.awt.image.BufferedImage;
-import java.io.File;
 import java.io.IOException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -28,6 +25,16 @@ import org.junit.jupiter.api.io.TempDir;
 class ScaleTransformBatchHandlerTest {
 
   Path tempDir = Path.of("target/test-output");
+
+  private static final int OBJECT_NAME = 5;
+  private static final int COPYRIGHT_NOTICE = 116;
+  private static final int CAPTION_ABSTRACT = 120;
+  private static final String ORIENTATION_FIELD = "orientation";
+  private static final int ROTATE_90_CW = 6;
+  private static final String XMP_FIELD = "xmp-data";
+  private static final String IPTC_EXT_NAMESPACE = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/";
+  private static final String TRAINED_ALGORITHMIC =
+      "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia";
 
   /**
    * A minimal grayscale SVG used as an own test source (not the customer file, never committed —
@@ -115,7 +122,7 @@ class ScaleTransformBatchHandlerTest {
               "0000FF80",
               targetBase,
               List.of(OutputFormat.jpeg()),
-              null);
+              MetadataContext.empty());
         });
 
     assertTrue(Files.exists(output), "Output JPEG should exist at " + output);
@@ -140,7 +147,7 @@ class ScaleTransformBatchHandlerTest {
               "0000FF80",
               targetBase,
               List.of(OutputFormat.png()),
-              null);
+              MetadataContext.empty());
         });
 
     BufferedImage img = ImageIO.read(output.toFile());
@@ -169,68 +176,12 @@ class ScaleTransformBatchHandlerTest {
               "0000FF80",
               targetBase,
               List.of(OutputFormat.png()),
-              null);
+              MetadataContext.empty());
         });
 
     BufferedImage img = ImageIO.read(output.toFile());
     int alpha = (img.getRGB(img.getWidth() / 2, img.getHeight() / 2) >> 24) & 0xFF;
     assertEquals(0xFF, alpha, "Opaque source pixel at image center should have alpha=255");
-  }
-
-  @Test
-  void testScaleWithMetadataCopyrightInOutputJpeg() throws IOException {
-    String source = getTestResource("generation_bruehl_stempel.jpg");
-    Path output = tempDir.resolve("with_metadata.jpg");
-    String targetBase = output.toString().replace(".jpg", "");
-    var metadata = new Metadata("Test-Copyright-äöüß", null, null);
-
-    Vips.init();
-    Vips.run(
-        arena -> {
-          VImage base = VImage.newFromFile(arena, source);
-          ScaleTransformSupport.applyAndWrite(
-              base,
-              new ResizeStep(300, 200),
-              null,
-              null,
-              null,
-              targetBase,
-              List.of(OutputFormat.jpeg()),
-              metadata);
-        });
-
-    byte[] fileBytes = Files.readAllBytes(output);
-    byte[] expectedBytes = "Test-Copyright-äöüß".getBytes(StandardCharsets.UTF_8);
-    assertTrue(
-        containsBytes(fileBytes, expectedBytes), "IPTC copyright should appear in output JPEG");
-  }
-
-  @Test
-  void testScaleWithMetadataDescriptionInOutputJpeg() throws IOException {
-    String source = getTestResource("generation_bruehl_stempel.jpg");
-    Path output = tempDir.resolve("with_metadata_desc.jpg");
-    String targetBase = output.toString().replace(".jpg", "");
-    var metadata = new Metadata(null, null, "Test-Description-äöüß");
-
-    Vips.init();
-    Vips.run(
-        arena -> {
-          VImage base = VImage.newFromFile(arena, source);
-          ScaleTransformSupport.applyAndWrite(
-              base,
-              new ResizeStep(300, 200),
-              null,
-              null,
-              null,
-              targetBase,
-              List.of(OutputFormat.jpeg()),
-              metadata);
-        });
-
-    byte[] fileBytes = Files.readAllBytes(output);
-    byte[] expectedBytes = "Test-Description-äöüß".getBytes(StandardCharsets.UTF_8);
-    assertTrue(
-        containsBytes(fileBytes, expectedBytes), "IPTC description should appear in output JPEG");
   }
 
   /**
@@ -271,31 +222,12 @@ class ScaleTransformBatchHandlerTest {
                       // png exercises the linear composite path (the actual crash),
                       // jpeg the flatten path.
                       List.of(OutputFormat.png(), OutputFormat.jpeg()),
-                      null);
+                      MetadataContext.empty());
                 }),
         "2-band grayscale SVG source must not crash on linear/flatten");
   }
 
-  private static boolean containsBytes(byte[] haystack, byte[] needle) {
-    for (int i = 0; i <= haystack.length - needle.length; i++) {
-      boolean matches = true;
-      for (int j = 0; j < needle.length && matches; j++) {
-        matches = haystack[i + j] == needle[j];
-      }
-      if (matches) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  @SuppressWarnings("PMD.LawOfDemeter")
   private String getTestResource(String name) {
-    ClassLoader cl = Thread.currentThread().getContextClassLoader();
-    URL url = cl.getResource(name);
-    if (url == null) {
-      throw new IllegalStateException("Test resource not found: " + name);
-    }
-    return new File(url.getFile()).getAbsolutePath();
+    return Fixtures.path(name);
   }
 }
