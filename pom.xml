@@ -54,7 +54,7 @@
 	</scm>
 
 	<properties>
-		<junit.version>6.0.3</junit.version>
+		<junit.version>6.1.0</junit.version>
 		<jackson.version>2.21.3</jackson.version>
 		<spotbugs.version>4.9.8</spotbugs.version>
 		<gpg.skip>true</gpg.skip>
@@ -88,7 +88,7 @@
 			<dependency>
 				<groupId>app.photofox.vips-ffm</groupId>
 				<artifactId>vips-ffm-core</artifactId>
-				<version>1.9.6</version>
+				<version>1.9.8</version>
 			</dependency>
 			<dependency>
 				<groupId>com.github.spotbugs</groupId>
@@ -114,7 +114,7 @@
 			<dependency>
 				<groupId>nl.jqno.equalsverifier</groupId>
 				<artifactId>equalsverifier</artifactId>
-				<version>4.4.2</version>
+				<version>4.5</version>
 				<scope>test</scope>
 			</dependency>
 
@@ -345,7 +345,7 @@
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>
 				<artifactId>spotless-maven-plugin</artifactId>
-				<version>3.4.0</version>
+				<version>3.6.0</version>
 				<configuration>
 					<!-- define a language-specific format -->
 					<java>
