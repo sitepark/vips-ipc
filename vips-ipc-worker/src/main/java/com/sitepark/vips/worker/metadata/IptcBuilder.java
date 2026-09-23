@@ -1,4 +1,4 @@
-package com.sitepark.vips.worker.command;
+package com.sitepark.vips.worker.metadata;
 
 import com.sitepark.vips.command.Metadata;
 import java.io.ByteArrayOutputStream;

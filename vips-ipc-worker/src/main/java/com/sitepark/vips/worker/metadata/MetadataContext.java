@@ -1,4 +1,4 @@
-package com.sitepark.vips.worker.command;
+package com.sitepark.vips.worker.metadata;
 
 import com.sitepark.vips.command.Metadata;
 
@@ -9,10 +9,10 @@ import com.sitepark.vips.command.Metadata;
  * @param source whitelisted fields read off the source image; never {@code null}
  * @param explicit the caller's metadata, or {@code null} when the command carries none
  */
-record MetadataContext(SourceMetadata source, Metadata explicit) {
+public record MetadataContext(SourceMetadata source, Metadata explicit) {
 
   /** A context that carries no source metadata and no explicit override. */
-  static MetadataContext empty() {
+  public static MetadataContext empty() {
     return new MetadataContext(SourceMetadata.empty(), null);
   }
 }

@@ -1,4 +1,4 @@
-package com.sitepark.vips.worker.command;
+package com.sitepark.vips.worker.metadata;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -39,7 +39,7 @@ import java.util.Map;
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidInstantiatingObjectsInLoops"
 })
-final class IptcParser {
+public final class IptcParser {
 
   static final int RESOURCE_IPTC = 0x0404;
 
@@ -56,7 +56,7 @@ final class IptcParser {
    * Parses {@code iptcData} into Application2 dataset number → values, in the order encountered.
    * Damaged input yields whatever could be read before the damage. Never returns {@code null}.
    */
-  static Map<Integer, List<String>> parse(byte[] iptcData) {
+  public static Map<Integer, List<String>> parse(byte[] iptcData) {
     if (iptcData == null) {
       return new LinkedHashMap<>();
     }

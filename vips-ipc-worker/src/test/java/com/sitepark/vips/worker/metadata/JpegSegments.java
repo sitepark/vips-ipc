@@ -1,4 +1,4 @@
-package com.sitepark.vips.worker.command;
+package com.sitepark.vips.worker.metadata;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -14,7 +14,7 @@ import java.util.Arrays;
  * namespace header) is what it exposes as {@code xmp-data}. That keeps these tests free of libvips,
  * which is not installed everywhere.
  */
-final class JpegSegments {
+public final class JpegSegments {
 
   private static final int MARKER_PREFIX = 0xFF;
   private static final int MARKER_SOI = 0xD8;
@@ -29,12 +29,12 @@ final class JpegSegments {
   private JpegSegments() {}
 
   /** Returns the {@code APP13} payload — what libvips stores as {@code iptc-data}. */
-  static byte[] readIptc(Path jpeg) throws IOException {
+  public static byte[] readIptc(Path jpeg) throws IOException {
     return findSegment(Files.readAllBytes(jpeg), MARKER_APP13, new byte[0]);
   }
 
   /** Returns the XMP packet from {@code APP1} — what libvips stores as {@code xmp-data}. */
-  static byte[] readXmp(Path jpeg) throws IOException {
+  public static byte[] readXmp(Path jpeg) throws IOException {
     return findSegment(Files.readAllBytes(jpeg), MARKER_APP1, XMP_HEADER);
   }
 

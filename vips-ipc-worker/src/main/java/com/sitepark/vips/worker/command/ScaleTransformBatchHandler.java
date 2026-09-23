@@ -8,6 +8,8 @@ import app.photofox.vipsffm.enums.VipsSize;
 import com.sitepark.vips.command.Result;
 import com.sitepark.vips.command.ScaleTransformBatch;
 import com.sitepark.vips.command.ScaleTransformBatch.BatchTarget;
+import com.sitepark.vips.worker.metadata.MetadataContext;
+import com.sitepark.vips.worker.metadata.SourceMetadata;
 import java.lang.foreign.MemorySegment;
 
 @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops") // one context per target, by design

@@ -37,6 +37,8 @@ vips-ipc (parent)
 ├── vips-ipc-share   – shared DTOs between manager and worker (e.g., Resize record)
 ├── vips-ipc-manager – IPC client that spawns/manages the worker process
 └── vips-ipc-worker  – long-running child process that does the actual VIPS image ops
+    ├── ...worker.command  – one handler per command, plus the shared transform pipeline
+    └── ...worker.metadata – IPTC/XMP read and write, behind a three-type API
 ```
 
 ### Communication Protocol
@@ -155,13 +157,28 @@ without it readers fall back to ISO-8859-1. Values over 65535 UTF-8 bytes throw
 
 #### Worker classes
 
-`XmpTag` holds the copy-forward whitelist. `PhotoshopIrb` wraps the IRB container, `IptcBuilder`
-writes the IIM stream, `XmpReader` / `XmpBuilder` handle the XMP packet, `ImageMetadata` the raw
-libvips fields, and `MetadataPolicy` the replace-and-drop applied at each write.
-`SourceMetadata.capture()` must run **before** any processing — the batch path decodes through
-`writeToMemory()` / `newFromMemory()`, which strips the whole header. Production never parses IPTC;
-the test-scope `IptcParser` exists so tests can assert what was written the way a real reader sees
-it, rather than scanning the output for raw value bytes.
+All of this lives in `com.sitepark.vips.worker.metadata`. Exactly **three** types are public, and the
+`command` package must not need any others:
+
+| Type              | Role                                                                                                                                                                                                           |
+| :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SourceMetadata`  | Opaque capture of a source image's whitelisted metadata. `capture()` must run **before** any processing — the batch path decodes through `writeToMemory()` / `newFromMemory()`, which strips the whole header. |
+| `MetadataContext` | Pairs that capture with the caller's `Metadata`.                                                                                                                                                               |
+| `MetadataPolicy`  | `apply(image, context)` — the replace-and-drop performed at each write.                                                                                                                                        |
+
+Everything else is package-private and should stay that way: `XmpTag` (the copy-forward whitelist),
+`PhotoshopIrb` (the IRB container), `IptcBuilder` (the IIM stream), `XmpReader` / `XmpBuilder` (the
+XMP packet) and `ImageMetadata` (the raw libvips fields). `SourceMetadata` is deliberately opaque
+rather than a record, so the hidden `XmpTag` never appears in a public signature.
+
+Production never parses IPTC; the test-scope `IptcParser` exists so tests can assert what was written
+the way a real reader sees it, rather than scanning the output for raw value bytes. It and
+`JpegSegments` are public because the `command` tests use them too.
+
+Two libvips binding notes worth knowing, both learned the hard way: `VImage.getBlob` misreports the
+size of libvips-internal fields, and `VImage.set(String, VBlob)` stores an empty blob. Read and write
+metadata blobs through `VipsHelper.image_get_blob` / `image_set_blob_copy` instead, which is what
+`ImageMetadata` does.
 
 **Limitation:** libvips' `gifsave` writes neither IPTC nor XMP, so metadata is lost for GIF output.
 For PNG, WebP and AVIF only the XMP packet applies — libvips writes `iptc-data` for JPEG and TIFF

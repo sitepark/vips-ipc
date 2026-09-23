@@ -1,4 +1,4 @@
-package com.sitepark.vips.worker.command;
+package com.sitepark.vips.worker.metadata;
 
 /**
  * The XMP properties carried over from a source image into every derived image.

@@ -1,4 +1,4 @@
-package com.sitepark.vips.worker.command;
+package com.sitepark.vips.worker.metadata;
 
 import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.VipsError;

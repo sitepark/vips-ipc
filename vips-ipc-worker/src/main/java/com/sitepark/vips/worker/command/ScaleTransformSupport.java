@@ -11,6 +11,8 @@ import com.sitepark.vips.command.OutputFormat;
 import com.sitepark.vips.command.ScaleTransform.BorderStep;
 import com.sitepark.vips.command.ScaleTransform.CropStep;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
+import com.sitepark.vips.worker.metadata.MetadataContext;
+import com.sitepark.vips.worker.metadata.MetadataPolicy;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;

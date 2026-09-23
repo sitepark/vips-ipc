@@ -1,4 +1,4 @@
-package com.sitepark.vips.worker.command;
+package com.sitepark.vips.worker.metadata;
 
 import app.photofox.vipsffm.VImage;
 import com.sitepark.vips.command.Metadata;
@@ -33,7 +33,7 @@ import java.util.Map;
  * makes the two agree, and it also matches {@code vips_thumbnail}, which the batch path uses and
  * which rotates upright by default.
  */
-final class MetadataPolicy {
+public final class MetadataPolicy {
 
   private MetadataPolicy() {}
 
@@ -43,7 +43,7 @@ final class MetadataPolicy {
    *
    * <p>Must be given a per-output image — never an image shared between outputs.
    */
-  static VImage apply(VImage image, MetadataContext context) {
+  public static VImage apply(VImage image, MetadataContext context) {
     Map<XmpTag, List<String>> xmp = carriedXmp(context);
 
     dropNonWhitelisted(image);

@@ -4,6 +4,8 @@ import app.photofox.vipsffm.VImage;
 import app.photofox.vipsffm.Vips;
 import com.sitepark.vips.command.Result;
 import com.sitepark.vips.command.ScaleTransform;
+import com.sitepark.vips.worker.metadata.MetadataContext;
+import com.sitepark.vips.worker.metadata.SourceMetadata;
 
 public class ScaleTransformHandler implements CommandHandler<ScaleTransform> {
 
