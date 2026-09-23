@@ -103,6 +103,46 @@ lifetime of your application — both patterns are supported.
 | `scaleTransform(source, target, resize, border, crop, background, formats, metadata)` | Applies resize → border → crop in sequence; writes one file per requested format using `target` as base path (without extension); steps are optional (`null` to skip) |
 | `scaleTransformBatch(source, targets)` | Produces multiple outputs from one source image in a single worker call; image is loaded once using shrink-on-load |
 
+### Metadata Handling
+
+Every command that writes an image applies the same metadata policy. It is always on.
+
+**You supply these** via the `Metadata` parameter of `scaleTransform()` or a `BatchTarget`. They are
+written as IPTC; a field left `null` is simply absent from the output — nothing from the source
+fills in for it:
+
+| `Metadata` field | IPTC dataset     |
+|------------------|------------------|
+| `title`          | 5 ObjectName     |
+| `copyright`      | 116 CopyrightNotice |
+| `description`    | 120 Caption-Abstract |
+
+**One field is copied from the source image:**
+
+| Field               | Carried as                      |
+|---------------------|---------------------------------|
+| `DigitalSourceType` | `Iptc4xmpExt:DigitalSourceType` (XMP) |
+
+`DigitalSourceType` — the marker identifying AI-generated images — exists only in XMP, has no IPTC
+equivalent, and would otherwise be lost. It survives into every derived image, including through
+`scaleTransformBatch`, which previously discarded all metadata.
+
+**What is dropped:** EXIF (camera, GPS, timestamps, and the embedded thumbnail), the source XMP
+packet, and Photoshop resource blocks. **What is kept:** the embedded ICC colour profile, so colours
+are unchanged for wide-gamut sources. EXIF orientation is applied to the pixels rather than passed
+along as a tag, so derived images are always upright.
+
+Setting `strip: true` on an output format suppresses all metadata for that format, as before.
+
+> **Changed in 2.1.0.** An image processed without a `Metadata` parameter now carries no IPTC at
+> all, even if the source had some. Up to 2.0.0 the single-target `scaleTransform` path let the
+> source's IPTC through (`scaleTransformBatch` already discarded it). Also, IPTC written from
+> `Metadata` is now wrapped in the Photoshop image resource block that the JPEG `APP13` segment
+> requires — before, the values were written to the file but no standard reader could see them.
+
+Note that libvips writes IPTC only for JPEG and TIFF. PNG, WebP and AVIF carry the XMP packet only,
+so `DigitalSourceType` reaches them but title/copyright/description do not. GIF supports neither.
+
 ### Extracting Image Metadata and Color Palette
 
 `extract()` reads image metadata without writing any output file. It returns an `ExtractResult` with
@@ -182,14 +222,14 @@ speeds up resize, color conversion, sharpening, and similar operations within a 
 
 However, **codec operations run outside this pipeline and are largely single-threaded**:
 
-| Phase | Threading |
-|---|---|
-| JPEG decode (libjpeg) | single-threaded |
-| Shrink-on-load | single-threaded |
-| VIPS resize / transform | multi-threaded (`VIPS_CONCURRENCY`) |
-| JPEG encode (libjpeg) | single-threaded |
-| PNG encode / decode (libpng) | single-threaded |
-| WebP / AVIF encode | codec-own threads (independent of `VIPS_CONCURRENCY`) |
+| Phase                        | Threading                                             |
+| :--------------------------- | :---------------------------------------------------- |
+| JPEG decode (libjpeg)        | single-threaded                                       |
+| Shrink-on-load               | single-threaded                                       |
+| VIPS resize / transform      | multi-threaded (`VIPS_CONCURRENCY`)                   |
+| JPEG encode (libjpeg)        | single-threaded                                       |
+| PNG encode / decode (libpng) | single-threaded                                       |
+| WebP / AVIF encode           | codec-own threads (independent of `VIPS_CONCURRENCY`) |
 
 Even with `VIPS_CONCURRENCY=8`, a single worker processes only one image at a time and leaves CPU
 cores idle during encode and decode phases. A pool overlaps these phases across images:
@@ -241,11 +281,11 @@ pool.configureAll(/* jpegInterlace */ true, /* strip */ true);
 
 ### Pool sizing guidance
 
-| Workload | Recommendation |
-|---|---|
-| Many small/medium images (codec-heavy) | `concurrency(1).buildPool(availableProcessors())` |
-| Large images with complex transforms (compute-heavy) | `concurrency(2).buildPool(availableProcessors() / 2)` |
-| Mixed or unknown | `buildPool(availableProcessors())` (default `VIPS_CONCURRENCY`) |
+| Workload                                             | Recommendation                                                  |
+| :--------------------------------------------------- | :-------------------------------------------------------------- |
+| Many small/medium images (codec-heavy)               | `concurrency(1).buildPool(availableProcessors())`               |
+| Large images with complex transforms (compute-heavy) | `concurrency(2).buildPool(availableProcessors() / 2)`           |
+| Mixed or unknown                                     | `buildPool(availableProcessors())` (default `VIPS_CONCURRENCY`) |
 
 The rule of thumb: `pool_size × VIPS_CONCURRENCY ≈ available CPU cores`.
 
