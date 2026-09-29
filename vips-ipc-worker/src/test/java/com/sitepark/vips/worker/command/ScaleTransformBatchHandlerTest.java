@@ -20,6 +20,8 @@ import java.util.List;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @RequiresVips
 class ScaleTransformBatchHandlerTest {
@@ -225,6 +227,37 @@ class ScaleTransformBatchHandlerTest {
                       MetadataContext.empty());
                 }),
         "2-band grayscale SVG source must not crash on linear/flatten");
+  }
+
+  /**
+   * 16-bit grayscale PNGs (1 band grey16, 2 bands grey16 + alpha) through the real batch path:
+   * {@code thumbnail} → memory round-trip → {@code applyAndWrite}. Without the sRGB normalisation
+   * the 2-band source crashed with "linear: vector must have 1 or 2 elements".
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"test-gray", "test-gray-alpha"})
+  void testSixteenBitGrayscalePngSourceDoesNotThrow(String name) {
+    String source = getTestResource("grayscale/" + name + ".png");
+    String target = tempDir.resolve("grayscale_" + name).toString();
+
+    var cmd =
+        new ScaleTransformBatch(
+            source,
+            List.of(
+                new BatchTarget(
+                    target,
+                    new ResizeStep(400, 225),
+                    null,
+                    null,
+                    "0000FF80",
+                    // png exercises the linear composite path, jpeg the flatten path.
+                    List.of(OutputFormat.png(), OutputFormat.jpeg()),
+                    null)),
+            false);
+
+    assertDoesNotThrow(
+        () -> new ScaleTransformBatchHandler().handle(cmd),
+        "16-bit grayscale PNG source must not crash on linear/flatten");
   }
 
   private String getTestResource(String name) {
