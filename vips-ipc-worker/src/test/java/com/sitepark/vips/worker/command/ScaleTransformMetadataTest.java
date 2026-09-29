@@ -11,6 +11,7 @@ import app.photofox.vipsffm.enums.VipsAngle;
 import com.sitepark.vips.command.Metadata;
 import com.sitepark.vips.command.OutputFormat;
 import com.sitepark.vips.command.ScaleTransform.ResizeStep;
+import com.sitepark.vips.command.Thumbnail;
 import com.sitepark.vips.worker.RequiresVips;
 import com.sitepark.vips.worker.metadata.IptcParser;
 import com.sitepark.vips.worker.metadata.JpegSegments;
@@ -22,6 +23,7 @@ import java.lang.foreign.ValueLayout;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -42,6 +44,7 @@ class ScaleTransformMetadataTest {
   private static final int ROTATE_90_CW = 6;
   private static final String XMP_FIELD = "xmp-data";
   private static final String IPTC_EXT_NAMESPACE = "http://iptc.org/std/Iptc4xmpExt/2008-02-29/";
+  private static final String IMAGEMAGICK_PNG = "imagemagick-raw-profile-xmp.png";
   private static final String TRAINED_ALGORITHMIC =
       "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia";
 
@@ -196,6 +199,57 @@ class ScaleTransformMetadataTest {
     assertTrue(
         output.contains(IPTC_EXT_NAMESPACE) && output.contains(TRAINED_ALGORITHMIC),
         "DigitalSourceType is the one field carried over from the source image");
+  }
+
+  /**
+   * libvips writes every {@code png-comment-*} field back on PNG save. The fixture is a real
+   * ImageMagick output, which keeps its complete XMP packet in such a text chunk ({@code Raw profile
+   * type xmp}); none of it may reach a derivative.
+   */
+  @Test
+  void testPngTextChunksAreDroppedFromOutputPng() throws IOException {
+    Path target = tempDir.resolve("imagemagick_png_derived.png");
+    Vips.init();
+    Vips.run(
+        arena -> {
+          VImage base = VImage.newFromFile(arena, getTestResource(IMAGEMAGICK_PNG));
+          var metadata = new MetadataContext(SourceMetadata.capture(base), null);
+          ScaleTransformSupport.applyAndWrite(
+              base,
+              new ResizeStep(50, 50),
+              null,
+              null,
+              null,
+              target.toString().replace(".png", ""),
+              List.of(OutputFormat.png()),
+              metadata);
+        });
+
+    assertNoPngTextChunks(target);
+  }
+
+  /**
+   * The thumbnail path hands the loaded image to the policy directly, without the header-stripping
+   * round trip through memory the batch path takes, so a PNG text chunk would survive there.
+   */
+  @Test
+  void testPngTextChunksAreDroppedFromThumbnail() throws IOException {
+    Path target = tempDir.resolve("imagemagick_png_thumbnail.png");
+    new ThumbnailHandler()
+        .handle(new Thumbnail(getTestResource(IMAGEMAGICK_PNG), target.toString(), 50, false));
+
+    assertNoPngTextChunks(target);
+  }
+
+  private static void assertNoPngTextChunks(Path png) {
+    List<String> fields = new ArrayList<>();
+    Vips.init();
+    Vips.run(arena -> fields.addAll(VImage.newFromFile(arena, png.toString()).getFields()));
+
+    assertEquals(
+        List.of(),
+        fields.stream().filter(f -> f.startsWith("png-comment-")).toList(),
+        "No PNG text chunk from the source may reach the output");
   }
 
   /**

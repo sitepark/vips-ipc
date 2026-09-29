@@ -41,6 +41,12 @@ final class ImageMetadata {
    */
   static final String ORIENTATION = "orientation";
 
+  /**
+   * Prefix of the PNG text chunks libvips exposes as {@code png-comment-<n>-<keyword>}. libvips
+   * writes every such field back on PNG save.
+   */
+  static final String PNG_COMMENT_PREFIX = "png-comment-";
+
   /** Sanity bound on a metadata block, guarding against a bogus length from libvips. */
   private static final long MAX_BLOB_BYTES = 64L * 1024 * 1024;
 

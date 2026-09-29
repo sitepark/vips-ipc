@@ -17,7 +17,8 @@ import java.util.Map;
  *       IPTC at all.
  *   <li>Exactly one field is carried over from the source: the {@link XmpTag} whitelist, which holds
  *       {@code Iptc4xmpExt:DigitalSourceType}. It is re-emitted in a freshly built XMP packet.
- *   <li>Everything else is dropped — EXIF, the source XMP packet, Photoshop resource blocks.
+ *   <li>Everything else is dropped — EXIF, the source XMP packet, Photoshop resource blocks, PNG
+ *       text chunks.
  * </ul>
  *
  * <p>The ICC profile is the exception: it is kept, because dropping it would shift the colours of a
@@ -62,6 +63,9 @@ public final class MetadataPolicy {
    * rebuilds the EXIF block from those on save — so each has to go as well. What libvips then still
    * writes is a synthesised baseline EXIF (version, resolution, dimensions) that carries nothing
    * from the source.
+   *
+   * <p>PNG text chunks ({@code png-comment-*}) go too: libvips writes them back on PNG save, and an
+   * ImageMagick-written source keeps its complete XMP packet in one of them.
    */
   private static void dropNonWhitelisted(VImage image) {
     for (String field : new ArrayList<>(image.getFields())) {
@@ -78,7 +82,8 @@ public final class MetadataPolicy {
         || ImageMetadata.PHOTOSHOP.equals(field)
         || ImageMetadata.JPEG_THUMBNAIL.equals(field)
         || ImageMetadata.ORIENTATION.equals(field)
-        || field.startsWith(ImageMetadata.EXIF_FIELD_PREFIX);
+        || field.startsWith(ImageMetadata.EXIF_FIELD_PREFIX)
+        || field.startsWith(ImageMetadata.PNG_COMMENT_PREFIX);
   }
 
   /**
